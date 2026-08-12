@@ -2003,7 +2003,7 @@ async function startSync(){
       const subtypeId=resolveAccSubtype(iss.tradeId);
       if(!subtypeId){logLine(log,'err',`  SKIPPED — "${tradeLabel(iss.tradeId)}" has no Forma subtype yet; create one issue of that type in ACC, then re-sync.`);fail++;continue;}
       const trade=getTrade(iss.tradeId);
-      const body={title:`${iss.areaLabel||iss.areaKey} (${iss.floor} Floor) — ${iss.description}`,description:`Punch list item\nLocation: ${iss.areaLabel||iss.areaKey}, ${iss.floor} Floor\nAssigned to: ${iss.companyName||'Unassigned'}\nDue: ${due}\n\n${iss.description}\n\n[Casablanca Punch Walk App]`,issueSubtypeId:subtypeId,status:'open',dueDate:due};
+      const body={title:`${iss.areaLabel||iss.areaKey} - ${iss.description}`,description:`Location: ${iss.areaLabel||iss.areaKey}\n\n${iss.description}`,issueSubtypeId:subtypeId,status:'open',dueDate:due};
       if(trade&&trade.assignToSuper){const sup=superMember();if(sup&&sup.id){body.assignedTo=sup.id;body.assignedToType='user';}}
       else{const co=liveCompanies().find(c=>c.name===iss.companyName);if(co&&co.accId){body.assignedTo=co.accId;body.assignedToType='company';}}
       if(watcherIds.length)body.watcherIds=watcherIds;
@@ -2049,7 +2049,7 @@ async function syncOne(issueId){
   const subtypeId=resolveAccSubtype(iss.tradeId);
   if(!subtypeId){alert('Cannot sync: "'+tradeLabel(iss.tradeId)+'" has no Forma subtype configured yet.\n\nCreate one issue of that type in ACC, then re-sync.');return;}
   const trade=getTrade(iss.tradeId);
-  const body={title:`${iss.areaLabel||iss.areaKey} (${iss.floor} Floor) — ${iss.description}`,description:`Punch list item\nLocation: ${iss.areaLabel||iss.areaKey}, ${iss.floor} Floor\nAssigned to: ${iss.companyName||'Unassigned'}\nDue: ${due}\n\n${iss.description}\n\n[Casablanca Punch Walk App]`,issueSubtypeId:subtypeId,status:'open',dueDate:due};
+  const body={title:`${iss.areaLabel||iss.areaKey} - ${iss.description}`,description:`Location: ${iss.areaLabel||iss.areaKey}\n\n${iss.description}`,issueSubtypeId:subtypeId,status:'open',dueDate:due};
   if(trade&&trade.assignToSuper){const sup=superMember();if(sup&&sup.id){body.assignedTo=sup.id;body.assignedToType='user';}}
   else{const co=liveCompanies().find(c=>c.name===iss.companyName);if(co&&co.accId){body.assignedTo=co.accId;body.assignedToType='company';}}
   if(watcherIds.length)body.watcherIds=watcherIds;
