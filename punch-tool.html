@@ -1560,7 +1560,7 @@ async function renderIssueList(){
         <div class="issue-tags">
           ${tl?`<span class="tag ${isWishlist?'tag-wishlist':'tag-trade'}">${esc(tl)}</span>`:''}
           ${iss.companyName?`<span class="tag tag-co">${esc(iss.companyName)}</span>`:''}
-          ${iss.synced?`<span class="tag tag-synced">&#10003; Forma${iss.formaNum?' #'+iss.formaNum:''}</span>`:`<span class="tag tag-pending">Pending sync</span>`}
+          ${iss.synced?`<span class="tag tag-synced">&#10003; ${iss.formaNum?'#'+iss.formaNum:'Synced'}</span>`:`<span class="tag tag-pending">Pending sync</span>`}
           ${iss.resolved?`<span class="tag tag-resolved">&#9679; Resolved</span>`:''}
         </div>
         <div class="photo-row">${photoHtml}
