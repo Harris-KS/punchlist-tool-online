@@ -1765,17 +1765,32 @@ function showToast(msg,ms){
   t.textContent=msg;t.style.display='block';
   clearTimeout(t._t);t._t=setTimeout(()=>{t.style.display='none';},ms||5000);
 }
+// Push a synced item's resolve/reopen to the actual Forma issue (close/open its status).
+async function pushIssueStatus(iss,token){
+  const bare=accPid(ST.cfg.projectId);
+  const resp=await fetch(`https://developer.api.autodesk.com/construction/issues/v1/projects/${bare}/issues/${iss.formaId}`,
+    {method:'PATCH',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({status:iss.resolved?'closed':'open'})});
+  if(!resp.ok){const eb=await resp.text().catch(()=>'');throw new Error('HTTP '+resp.status+' '+eb.slice(0,160));}
+}
 async function toggleResolve(id){
   const issues=await DB.getIssues(ST.room.floor,ST.room.areaKey);
   const iss=issues.find(i=>i.id===id);
   if(!iss)return;
   iss.resolved=!iss.resolved;
+  if(iss.formaId)iss.pendingStatus=iss.resolved?'closed':'open';   // remember intent so reconcile won't stomp it
   await DB.updateIssue(iss);
-  await loadIssueList();
-  await loadAndDrawDots();
-  renderFloorTabs();
-  await updateStats();
-  if(iss.formaId)showToast('Note: '+(iss.resolved?'Resolved':'Reopened')+' locally — this change needs to be reflected in Forma (issue #'+(iss.formaNum||'?')+').');
+  await loadIssueList();await loadAndDrawDots();renderFloorTabs();await updateStats();
+  if(!iss.formaId)return;                                          // not in Forma yet — nothing to push
+  const auth=navigator.onLine?await DB.getSetting('auth',null):null;
+  if(auth&&auth.accessToken){
+    try{
+      await pushIssueStatus(iss,auth.accessToken);
+      iss.pendingStatus=null;await DB.updateIssue(iss);
+      showToast((iss.resolved?'Closed':'Reopened')+' issue #'+(iss.formaNum||'?')+' in Forma.');
+    }catch(e){showToast('Saved — will update Forma #'+(iss.formaNum||'?')+' on next sync.');}
+  }else{
+    showToast('Saved offline — will update Forma #'+(iss.formaNum||'?')+' when you sync online.');
+  }
 }
 function revokePhotoUrl(photoId){
   const url=ST.photoUrls.get(photoId);
@@ -2107,8 +2122,10 @@ async function refreshResolvedFromForma(){
       const f=byId[i.formaId];if(!f)continue;
       let upd=false;
       if(f.n&&i.formaNum!==f.n){i.formaNum=f.n;upd=true;}          // backfill the Forma issue number
-      const shouldResolve=(f.s==='closed');                       // mirror Forma status both ways
-      if(!!i.resolved!==shouldResolve){i.resolved=shouldResolve;upd=true;} // closed->resolved, reopened->unresolved
+      if(!i.pendingStatus){                                       // don't overwrite a local change that hasn't pushed yet
+        const shouldResolve=(f.s==='closed');                     // mirror Forma status both ways
+        if(!!i.resolved!==shouldResolve){i.resolved=shouldResolve;upd=true;} // closed->resolved, reopened->unresolved
+      }
       if(upd){await DB.updateIssue(i);changed++;}
     }
     if(changed)await renderAll();
@@ -2180,6 +2197,12 @@ async function startSync(){
       if(toAttach.length)await attachIssuePhotos(formaId,toAttach,token,log);
       ok++;
     }catch(err){logLine(log,'err','  ✗ Failed: '+err.message);fail++;}
+  }
+  // Push any pending resolve/reopen changes to already-synced Forma issues
+  const statusChanges=(await DB.getAllIssues()).filter(i=>i.synced&&i.formaId&&i.pendingStatus);
+  for(const i of statusChanges){
+    try{await pushIssueStatus(i,token);i.pendingStatus=null;await DB.updateIssue(i);logLine(log,'ok','  ✓ #'+(i.formaNum||'?')+' → '+(i.resolved?'closed':'open')+' in Forma');}
+    catch(e){logLine(log,'err','  ✗ Status update #'+(i.formaNum||'?')+': '+e.message);}
   }
   document.getElementById('prog-bar').style.width='100%';
   logLine(log,'ok',`Done: ${ok} synced, ${fail} failed.`);
