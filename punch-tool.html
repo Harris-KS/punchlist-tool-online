@@ -1758,6 +1758,13 @@ async function saveEdit(id){
   await loadAndDrawDots();
   await renderGrid();
 }
+// Small non-blocking toast (bottom-center), auto-dismiss. Reliable on desktop + mobile.
+function showToast(msg,ms){
+  let t=document.getElementById('_toast');
+  if(!t){t=document.createElement('div');t.id='_toast';t.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1c2b3a;color:#fff;padding:11px 16px;border-radius:8px;font-size:13px;max-width:88%;box-shadow:0 6px 20px rgba(0,0,0,.35);z-index:100000;text-align:center;line-height:1.4;';document.body.appendChild(t);}
+  t.textContent=msg;t.style.display='block';
+  clearTimeout(t._t);t._t=setTimeout(()=>{t.style.display='none';},ms||5000);
+}
 async function toggleResolve(id){
   const issues=await DB.getIssues(ST.room.floor,ST.room.areaKey);
   const iss=issues.find(i=>i.id===id);
@@ -1768,6 +1775,7 @@ async function toggleResolve(id){
   await loadAndDrawDots();
   renderFloorTabs();
   await updateStats();
+  if(iss.formaId)showToast('Note: '+(iss.resolved?'Resolved':'Reopened')+' locally — this change needs to be reflected in Forma (issue #'+(iss.formaNum||'?')+').');
 }
 function revokePhotoUrl(photoId){
   const url=ST.photoUrls.get(photoId);
