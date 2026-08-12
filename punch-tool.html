@@ -1560,7 +1560,7 @@ async function renderIssueList(){
         <div class="issue-tags">
           ${tl?`<span class="tag ${isWishlist?'tag-wishlist':'tag-trade'}">${esc(tl)}</span>`:''}
           ${iss.companyName?`<span class="tag tag-co">${esc(iss.companyName)}</span>`:''}
-          ${iss.synced?`<span class="tag tag-synced">&#10003; Forma #${iss.formaId||'?'}</span>`:`<span class="tag tag-pending">Pending sync</span>`}
+          ${iss.synced?`<span class="tag tag-synced">&#10003; Forma${iss.formaNum?' #'+iss.formaNum:''}</span>`:`<span class="tag tag-pending">Pending sync</span>`}
           ${iss.resolved?`<span class="tag tag-resolved">&#9679; Resolved</span>`:''}
         </div>
         <div class="photo-row">${photoHtml}
@@ -2069,17 +2069,21 @@ async function refreshResolvedFromForma(){
   try{
     if(!navigator.onLine||!ST.cfg.projectId)return;
     const all=await DB.getAllIssues();
-    const synced=all.filter(i=>i.synced&&i.formaId&&!i.resolved);
+    const synced=all.filter(i=>i.synced&&i.formaId);
     if(!synced.length)return;
     const auth=await DB.getSetting('auth',null);
     if(!auth||!auth.accessToken)return;
     const token=auth.accessToken;
     const bare=accPid(ST.cfg.projectId);
     const items=await accFetchAll(`https://developer.api.autodesk.com/construction/issues/v1/projects/${bare}/issues`,token);
-    const statusById={};items.forEach(it=>{if(it&&it.id)statusById[it.id]=String(it.status||'').toLowerCase();});
+    const byId={};items.forEach(it=>{if(it&&it.id)byId[it.id]={s:String(it.status||'').toLowerCase(),n:it.displayId};});
     let changed=0;
     for(const i of synced){
-      if(statusById[i.formaId]==='closed'){i.resolved=true;await DB.updateIssue(i);changed++;}
+      const f=byId[i.formaId];if(!f)continue;
+      let upd=false;
+      if(f.n&&i.formaNum!==f.n){i.formaNum=f.n;upd=true;}          // backfill the Forma issue number
+      if(!i.resolved&&f.s==='closed'){i.resolved=true;upd=true;}   // Forma-closed -> resolved in app
+      if(upd){await DB.updateIssue(i);changed++;}
     }
     if(changed)await renderAll();
   }catch(e){/* offline / token / API error — skip quietly */}
@@ -2140,7 +2144,8 @@ async function startSync(){
       if(!resp.ok){const eb=await resp.text().catch(()=>'');throw new Error('HTTP '+resp.status+' '+eb.slice(0,240));}
       const data=await resp.json();
       const formaId=data.id||(data.data&&data.data.id)||'created';
-      iss.synced=true;iss.formaId=formaId;await DB.updateIssue(iss);
+      const formaNum=data.displayId||(data.data&&data.data.displayId)||null;
+      iss.synced=true;iss.formaId=formaId;iss.formaNum=formaNum;await DB.updateIssue(iss);
       logLine(log,'ok','  ✓ Issue created: '+formaId);
       // Attach the location snapshot (this item's dot on its plan) FIRST, then the item's photos.
       const photos=await DB.getPhotos(iss.id);
@@ -2175,7 +2180,8 @@ async function syncOne(issueId){
     if(!resp.ok){const eb=await resp.text().catch(()=>'');throw new Error('HTTP '+resp.status+' '+eb.slice(0,240));}
     const data=await resp.json();
     const formaId=data.id||(data.data&&data.data.id)||'created';
-    iss.synced=true;iss.formaId=formaId;await DB.updateIssue(iss);
+    const formaNum=data.displayId||(data.data&&data.data.displayId)||null;
+    iss.synced=true;iss.formaId=formaId;iss.formaNum=formaNum;await DB.updateIssue(iss);
     alert('Synced to Forma: '+formaId);
     await loadIssueList();await updateStats();await renderFloorTabs();
   }catch(err){alert('Sync failed: '+err.message);}
