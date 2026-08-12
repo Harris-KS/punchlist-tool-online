@@ -840,7 +840,7 @@ function showLoginScreen(msg){
 }
 function hideLoginScreen(){document.getElementById('auth-overlay').style.display='none';}
 async function logout(){
-  if(!confirm('Log out of Harris Punch Walk?\n\nYour local punch data is not affected.'))return;
+  if(!await uiConfirm('Log out of Harris Punch Walk?\n\nYour local punch data is not affected.','Log out'))return;
   await DB.setSetting('auth',null);
   sessionStorage.clear();
   window.history.replaceState({},'',window.location.pathname);
@@ -1080,7 +1080,7 @@ async function confirmProjectSelection(){
   const pname=opt.getAttribute('data-name')||opt.text;
   const accountId=opt.getAttribute('data-account')||'';
   const switching=ST.cfg.projectId&&ST.cfg.projectId!==pid;
-  if(switching&&!confirm(`Switch to project:\n"${pname}"?\n\nThis will clear the cached member and company lists. Your punch items are not affected.`))return;
+  if(switching&&!await uiConfirm(`Switch to project:\n"${pname}"?\n\nThis will clear the cached member and company lists. Your punch items are not affected.`,'Switch'))return;
   ST.cfg.projectId=pid;
   ST.cfg.projectName=pname;
   ST.cfg.accountId=accountId;
@@ -1207,8 +1207,8 @@ function addCustomTrade(){
   document.getElementById('new-trade-label').value='';
   buildTradeCfgRows();buildNewTradeCoSelect();
 }
-function removeCustomTrade(idx){
-  if(!confirm('Remove this issue type?'))return;
+async function removeCustomTrade(idx){
+  if(!await uiConfirm('Remove this issue type?','Remove'))return;
   ST.cfg.customTrades.splice(idx,1);
   buildTradeCfgRows();buildNewTradeCoSelect();
 }
@@ -1644,8 +1644,27 @@ async function submitIssue(){
   renderFloorTabs();
   await updateStats();
 }
+// In-app confirm — native confirm() is unreliable in installed PWAs (silently returns false)
+// and differs desktop vs mobile, so we use our own modal that behaves identically everywhere.
+function uiConfirm(msg,okLabel){
+  return new Promise(resolve=>{
+    const ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    const box=document.createElement('div');
+    box.style.cssText='background:#fff;border-radius:10px;max-width:340px;width:100%;padding:20px;box-shadow:0 10px 34px rgba(0,0,0,.35);';
+    box.innerHTML=`<div style="font-size:14px;color:#1c2b3a;white-space:pre-line;line-height:1.5;margin-bottom:18px;">${esc(msg)}</div>`;
+    const row=document.createElement('div');row.style.cssText='display:flex;gap:8px;justify-content:flex-end;';
+    const cancel=document.createElement('button');cancel.textContent='Cancel';cancel.style.cssText='padding:10px 16px;border:1px solid #ccc;background:#fff;border-radius:6px;font-size:14px;cursor:pointer;';
+    const ok=document.createElement('button');ok.textContent=okLabel||'OK';ok.style.cssText='padding:10px 18px;border:none;background:#c0392b;color:#fff;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;';
+    const done=v=>{ov.remove();resolve(v);};
+    cancel.onclick=()=>done(false);ok.onclick=()=>done(true);
+    ov.addEventListener('click',e=>{if(e.target===ov)done(false);});
+    row.appendChild(cancel);row.appendChild(ok);box.appendChild(row);ov.appendChild(box);document.body.appendChild(ov);
+    ok.focus();
+  });
+}
 async function delIssue(id){
-  if(!confirm('Delete this punch item?'))return;
+  if(!await uiConfirm('Delete this punch item?','Delete'))return;
   await DB.deletePhotosByIssue(id);
   await DB.deleteIssue(id);
   await loadIssueList();
@@ -1728,13 +1747,13 @@ function revokePhotoUrl(photoId){
   if(url){URL.revokeObjectURL(url);ST.photoUrls.delete(photoId);}
 }
 async function delPhoto(photoId,issueId){
-  if(!confirm('Delete this photo?'))return;
+  if(!await uiConfirm('Delete this photo?','Delete'))return;
   revokePhotoUrl(photoId);
   await DB.deletePhoto(photoId);
   await loadIssueList();
 }
 async function delPhotoInEdit(photoId,issueId){
-  if(!confirm('Delete this photo?'))return;
+  if(!await uiConfirm('Delete this photo?','Delete'))return;
   revokePhotoUrl(photoId);
   await DB.deletePhoto(photoId);
   await editIssue(issueId);
@@ -2126,7 +2145,7 @@ function logLine(el,type,msg){const d=document.createElement('div');d.className=
 async function offerMigration(){
   const old=localStorage.getItem('casablanca_punch_v2');
   if(!old)return;
-  if(!confirm('Found existing punch data from the old app version. Import it into the new app?\n\nPhotos will be migrated as-is.'))return;
+  if(!await uiConfirm('Found existing punch data from the old app version. Import it into the new app?\n\nPhotos will be migrated as-is.'))return;
   let data;try{data=JSON.parse(old);}catch(e){alert('Could not read old data.');return;}
   let count=0;
   for(const key in data){
@@ -2168,7 +2187,7 @@ if('serviceWorker' in navigator){
           nw.addEventListener('statechange',()=>{
             if(nw.state==='installed'&&navigator.serviceWorker.controller){
               // New version available — prompt user
-              if(confirm('A new version of the app is available. Reload to update?'))location.reload();
+              uiConfirm('A new version of the app is available. Reload to update?','Reload').then(function(ok){if(ok)location.reload();});
             }
           });
         });
