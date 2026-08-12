@@ -1397,7 +1397,7 @@ function openRoom(areaKey,roomType,bedType){
 // ─── ROOM PANEL ───────────────────────────────────────────────────────────────
 async function openRoomPanel(floor,areaKey,label,roomType,bedType,planSrc){
   ST.room={floor,areaKey,label,roomType,bedType};
-  ST.pendingDot=null;ST.pendingPhotos=[];
+  ST.pendingDot=null;ST.pendingPhotos=[];ST.relocating=null;
   document.getElementById('panel-num').textContent=label;
   document.getElementById('panel-sub').textContent=floorLabel(floor);
   const bedLabel=bedType?(bedType==='king'?' · King':' · Double'):'';
@@ -1475,7 +1475,7 @@ function closePanel(){
   const fpWrap=document.getElementById('fp-wrap');
   fpImg.style.maxWidth='';fpImg.style.maxHeight='';fpImg.style.width='';fpImg.style.height='';
   fpWrap.style.overflowY='hidden';fpWrap.scrollLeft=0;
-  ST.room=null;ST.pendingDot=null;ST.pendingPhotos=[];
+  ST.room=null;ST.pendingDot=null;ST.pendingPhotos=[];ST.relocating=null;
   renderAll();
 }
 function handleFpError(){
@@ -1497,7 +1497,7 @@ async function loadAndDrawDots(){
   const ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);
   issues.filter(i=>!i.resolved&&i.dotX!==null&&i.dotY!==null).forEach((iss,idx)=>{
     const x=(iss.dotX/100)*canvas.width,y=(iss.dotY/100)*canvas.height;
-    drawDot(ctx,x,y,idx+1,'#e8a020');
+    drawDot(ctx,x,y,idx+1,iss.id===ST.relocating?'#0e6fb5':'#e8a020');
   });
   if(ST.pendingDot){
     const x=(ST.pendingDot.x/100)*canvas.width,y=(ST.pendingDot.y/100)*canvas.height;
@@ -1516,6 +1516,7 @@ document.getElementById('panel-fp-canvas').addEventListener('click',function(e){
   const canvas=this;const rect=canvas.getBoundingClientRect();
   const x=((e.clientX-rect.left)/rect.width)*100;
   const y=((e.clientY-rect.top)/rect.height)*100;
+  if(ST.relocating){_relocateDot(x,y);return;}
   ST.pendingDot={x:parseFloat(x.toFixed(1)),y:parseFloat(y.toFixed(1))};
   updateDotStatus();loadAndDrawDots();
 });
@@ -1524,6 +1525,7 @@ document.getElementById('panel-fp-canvas').addEventListener('touchend',function(
   const t=e.changedTouches[0];const rect=this.getBoundingClientRect();
   const x=((t.clientX-rect.left)/rect.width)*100;
   const y=((t.clientY-rect.top)/rect.height)*100;
+  if(ST.relocating){_relocateDot(x,y);return;}
   ST.pendingDot={x:parseFloat(x.toFixed(1)),y:parseFloat(y.toFixed(1))};
   updateDotStatus();loadAndDrawDots();
 });
@@ -1647,7 +1649,7 @@ async function submitIssue(){
   await persistSettings();
   // Reset form
   document.getElementById('issue-desc').value='';
-  ST.pendingDot=null;ST.pendingPhotos=[];
+  ST.pendingDot=null;ST.pendingPhotos=[];ST.relocating=null;
   document.getElementById('pending-thumbs').innerHTML='';
   updateDotStatus();
   await loadIssueList();
@@ -1686,6 +1688,7 @@ async function delIssue(id){
 async function editIssue(id){
   const iss=ST.issues.find(i=>i.id===id);
   if(!iss)return;
+  ST.relocating=id;   // while this item is being edited, tapping the plan moves ITS dot
   const bodyEl=document.getElementById('ib_'+id);
   if(!bodyEl)return;
   // Trade options
@@ -1716,12 +1719,23 @@ async function editIssue(id){
     <div class="photo-row" style="margin-bottom:6px;">${photoHtml}
       <button class="btn-photo" style="width:50px;height:50px;font-size:10px;padding:2px;" onclick="addPhoto(${id})">📷<br>Add</button>
     </div>
+    <div style="font-size:11px;color:#0e6fb5;margin:2px 0 6px;">📍 Tap the floor plan above to move this item's dot (it keeps its number).</div>
     <div style="display:flex;gap:5px;">
       <button class="btn-save-edit" onclick="saveEdit(${id})">Save</button>
-      <button class="btn-cancel-edit" onclick="renderIssueList()">Cancel</button>
+      <button class="btn-cancel-edit" onclick="cancelEdit(${id})">Cancel</button>
     </div>`;
   document.getElementById('ed_desc_'+id).focus();
+  loadAndDrawDots();   // highlight this item's dot (blue) so it's clear which one moves
 }
+async function _relocateDot(xPct,yPct){
+  if(!ST.relocating)return;
+  const iss=ST.issues.find(i=>i.id===ST.relocating);
+  if(!iss)return;
+  iss.dotX=parseFloat(xPct.toFixed(1));iss.dotY=parseFloat(yPct.toFixed(1));
+  await DB.updateIssue(iss);
+  await loadAndDrawDots();
+}
+function cancelEdit(){ST.relocating=null;renderIssueList();loadAndDrawDots();}
 function onEditTradeChange(id,tradeId){
   const co=getTradeCompany(tradeId);
   setCoDisplay('ed_co_wrap_'+id,'ed_co_name_'+id,co);
@@ -1737,9 +1751,11 @@ async function saveEdit(id){
   iss.description=desc;
   if(tradeId)iss.tradeId=tradeId;
   iss.companyName=coName;
-  if(changed&&iss.synced){iss.synced=false;iss.formaId=null;}
+  if(changed&&iss.synced){iss.synced=false;iss.formaId=null;iss.formaNum=null;}
+  ST.relocating=null;
   await DB.updateIssue(iss);
   await loadIssueList();
+  await loadAndDrawDots();
   await renderGrid();
 }
 async function toggleResolve(id){
