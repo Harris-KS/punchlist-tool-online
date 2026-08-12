@@ -1531,6 +1531,7 @@ function updateDotStatus(){
   if(!el)return;
   el.textContent=ST.pendingDot?`Location: placed at (${ST.pendingDot.x.toFixed(0)}%, ${ST.pendingDot.y.toFixed(0)}%) — tap plan to reposition`:'Location: not placed — tap floor plan above';
   el.style.color=ST.pendingDot?'#006630':'#888';
+  el.style.fontWeight='';
 }
 
 // ─── ISSUE LIST ───────────────────────────────────────────────────────────────
@@ -1616,6 +1617,15 @@ async function submitIssue(){
   const desc=document.getElementById('issue-desc').value.trim();
   if(!desc){document.getElementById('issue-desc').focus();return;}
   if(!ST.room)return;
+  // Safeguard: force the user to drop a location dot on the plan before adding — but only
+  // when a plan is actually displayed (some locations have no plan image, #fp-wrap hidden).
+  const _fpWrap=document.getElementById('fp-wrap');
+  if(_fpWrap&&_fpWrap.style.display!=='none'&&!ST.pendingDot){
+    const el=document.getElementById('dot-status');
+    if(el){el.textContent='⚠ Tap the floor plan above to place this item\'s location before adding.';el.style.color='#c0392b';el.style.fontWeight='700';}
+    if(_fpWrap.scrollIntoView)_fpWrap.scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
   const tradeId=document.getElementById('issue-trade').value;
   const coName=getTradeCompany(tradeId);
   const issue={
