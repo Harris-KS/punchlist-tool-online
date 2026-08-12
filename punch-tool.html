@@ -2084,6 +2084,35 @@ async function refreshResolvedFromForma(){
     if(changed)await renderAll();
   }catch(e){/* offline / token / API error — skip quietly */}
 }
+// The plan image for a given item's location — matches the panel's own logic so the dot lines up.
+function getPlanSrcForItem(it){
+  if(it.areaKey==='corridor')return getFloorPlanSrc(it.floor);
+  if(it.areaKey==='elevator')return ROOM_PLAN_PATHS.elevator_lobby;
+  return getRoomPlanSrc(it.roomType,it.bedType);
+}
+function _loadImg(src){return new Promise((res,rej)=>{const im=new Image();im.onload=()=>res(im);im.onerror=()=>rej(new Error('image load failed'));im.src=src;});}
+// Build a "location snapshot": this item's plan with ONLY this item's single dot on it, as a JPEG blob.
+async function buildLocationPhoto(it){
+  try{
+    if(it.dotX==null||it.dotY==null)return null;
+    const src=getPlanSrcForItem(it);
+    if(!src)return null;
+    const img=await _loadImg(src);
+    const W=img.naturalWidth||img.width,H=img.naturalHeight||img.height;
+    if(!W||!H)return null;
+    const canvas=document.createElement('canvas');canvas.width=W;canvas.height=H;
+    const ctx=canvas.getContext('2d');
+    ctx.drawImage(img,0,0,W,H);
+    const x=(it.dotX/100)*W,y=(it.dotY/100)*H;
+    const r=Math.max(16,Math.round(Math.min(W,H)*0.022));
+    ctx.beginPath();ctx.arc(x,y,r,0,2*Math.PI);ctx.fillStyle='#e8a020';ctx.fill();
+    ctx.lineWidth=Math.max(2,Math.round(r*0.22));ctx.strokeStyle='#1c2b3a';ctx.stroke();
+    ctx.beginPath();ctx.arc(x,y,Math.round(r*0.34),0,2*Math.PI);ctx.fillStyle='#fff';ctx.fill();
+    const blob=await new Promise(res=>canvas.toBlob(b=>res(b),'image/jpeg',0.85));
+    if(!blob)return null;
+    return {blob,filename:('location-'+String(it.areaLabel||it.areaKey||'loc').replace(/[^\w-]+/g,'_')+'.jpg')};
+  }catch(e){return null;}
+}
 async function startSync(){
   const pending=(await DB.getAllIssues()).filter(i=>!i.synced&&!i.resolved);
   if(!pending.length){alert('No pending items.');return;}
@@ -2113,9 +2142,11 @@ async function startSync(){
       const formaId=data.id||(data.data&&data.data.id)||'created';
       iss.synced=true;iss.formaId=formaId;await DB.updateIssue(iss);
       logLine(log,'ok','  ✓ Issue created: '+formaId);
-      // Attach photos via ACC's OSS signed-S3 flow
+      // Attach the location snapshot (this item's dot on its plan) FIRST, then the item's photos.
       const photos=await DB.getPhotos(iss.id);
-      if(photos.length)await attachIssuePhotos(formaId,photos,token,log);
+      const locPhoto=await buildLocationPhoto(iss);
+      const toAttach=locPhoto?[locPhoto].concat(photos):photos;
+      if(toAttach.length)await attachIssuePhotos(formaId,toAttach,token,log);
       ok++;
     }catch(err){logLine(log,'err','  ✗ Failed: '+err.message);fail++;}
   }
