@@ -2099,7 +2099,8 @@ async function refreshResolvedFromForma(){
       const f=byId[i.formaId];if(!f)continue;
       let upd=false;
       if(f.n&&i.formaNum!==f.n){i.formaNum=f.n;upd=true;}          // backfill the Forma issue number
-      if(!i.resolved&&f.s==='closed'){i.resolved=true;upd=true;}   // Forma-closed -> resolved in app
+      const shouldResolve=(f.s==='closed');                       // mirror Forma status both ways
+      if(!!i.resolved!==shouldResolve){i.resolved=shouldResolve;upd=true;} // closed->resolved, reopened->unresolved
       if(upd){await DB.updateIssue(i);changed++;}
     }
     if(changed)await renderAll();
