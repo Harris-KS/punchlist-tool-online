@@ -987,13 +987,13 @@ function buildTradeCfgRows(){
 function memberKey(m){return m.id||('email:'+m.email);}
 function liveCompanies(){
   const byName=new Map();
-  // Live ACC-fetched companies win (freshest accIds)…
-  ((ST.cfg.accCompanies&&ST.cfg.accCompanies.length)?ST.cfg.accCompanies:[]).forEach(c=>byName.set(c.name,{name:c.name,accId:c.accId||''}));
-  // …then backfill/augment from the hardcoded COMPANIES so known accIds (e.g. Graniti
-  // Vicentia 588055126) still resolve offline or if a company is missing from the live list.
-  COMPANIES.forEach(c=>{
-    if(byName.has(c.name)){const e=byName.get(c.name);if(!e.accId&&c.accId)e.accId=c.accId;}
-    else byName.set(c.name,{name:c.name,accId:c.accId||''});
+  // Hardcoded NUMERIC company ids win. ACC v1 issue assignment (assignedToType:'company')
+  // requires the numeric account-company id (e.g. 541216015); the members endpoint returns a
+  // UUID (e.g. ccc55131-…), and sending that as assignedTo makes the create fail with HTTP 400.
+  COMPANIES.forEach(c=>byName.set(c.name,{name:c.name,accId:c.accId||''}));
+  // Live fetch only ADDS companies we don't already have a numeric id for (keeps ours for known ones).
+  ((ST.cfg.accCompanies&&ST.cfg.accCompanies.length)?ST.cfg.accCompanies:[]).forEach(c=>{
+    if(!byName.has(c.name))byName.set(c.name,{name:c.name,accId:c.accId||''});
   });
   return [...byName.values()];
 }
@@ -1998,7 +1998,7 @@ async function startSync(){
   for(let i=0;i<pending.length;i++){
     const iss=pending[i];
     document.getElementById('prog-bar').style.width=Math.round((i/pending.length)*100)+'%';
-    logLine(log,'inf',`[${i+1}/${pending.length}] ${iss.areaLabel||iss.areaKey} — ${iss.description.substring(0,60)}`);
+    logLine(log,'inf',`[${i+1}/${pending.length}] ${iss.areaLabel||iss.areaKey} · ${tradeLabel(iss.tradeId)} → ${iss.companyName||'(superintendent)'}`);
     try{
       const subtypeId=resolveAccSubtype(iss.tradeId);
       if(!subtypeId){logLine(log,'err',`  SKIPPED — "${tradeLabel(iss.tradeId)}" has no Forma subtype yet; create one issue of that type in ACC, then re-sync.`);fail++;continue;}
@@ -2008,7 +2008,7 @@ async function startSync(){
       else{const co=liveCompanies().find(c=>c.name===iss.companyName);if(co&&co.accId){body.assignedTo=co.accId;body.assignedToType='company';}}
       if(watcherIds.length)body.watcherIds=watcherIds;
       const resp=await fetch(`https://developer.api.autodesk.com/construction/issues/v1/projects/${pid}/issues`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(body)});
-      if(!resp.ok)throw new Error('HTTP '+resp.status);
+      if(!resp.ok){const eb=await resp.text().catch(()=>'');throw new Error('HTTP '+resp.status+' '+eb.slice(0,240));}
       const data=await resp.json();
       const formaId=data.id||(data.data&&data.data.id)||'created';
       iss.synced=true;iss.formaId=formaId;await DB.updateIssue(iss);
@@ -2055,7 +2055,7 @@ async function syncOne(issueId){
   if(watcherIds.length)body.watcherIds=watcherIds;
   try{
     const resp=await fetch(`https://developer.api.autodesk.com/construction/issues/v1/projects/${pid}/issues`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(!resp.ok)throw new Error('HTTP '+resp.status);
+    if(!resp.ok){const eb=await resp.text().catch(()=>'');throw new Error('HTTP '+resp.status+' '+eb.slice(0,240));}
     const data=await resp.json();
     const formaId=data.id||(data.data&&data.data.id)||'created';
     iss.synced=true;iss.formaId=formaId;await DB.updateIssue(iss);
