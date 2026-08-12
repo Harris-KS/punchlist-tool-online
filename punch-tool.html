@@ -1271,6 +1271,7 @@ async function renderGrid(){
   // Count by areaKey
   const cnt={};const synCnt={};
   issues.forEach(i=>{
+    if(i.resolved)return;   // room/area badge should reflect OPEN items only
     cnt[i.areaKey]=(cnt[i.areaKey]||0)+1;
     if(i.synced)synCnt[i.areaKey]=(synCnt[i.areaKey]||0)+1;
   });
