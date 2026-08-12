@@ -618,7 +618,7 @@ const DEFAULT_CFG={
   projectName:'',
   accountId:'',
   fpBase:'./floor-plans/complete/',
-  autoDownload:true,
+  autoDownload:false,
   tradeDefaults:{...DEFAULT_TRADE_DEFAULTS},
   activeCompanies:['Draven Electric','Southern Nevada Drywall Systems','Las Vegas Prestige Plumbing','GoPro Interiors','Southwest Doors and Hardware','Graniti Vicentia','Harris Associates'],
   watchers:[],
@@ -1984,6 +1984,54 @@ async function copySyncPayload(){
   const text=JSON.stringify(payload,null,2);
   navigator.clipboard.writeText(text).then(()=>alert('Sync payload copied to clipboard.\nPaste into Claude and ask: "Push these to ACC Forma as punch list issues using the Ask Harris M365 MCP."')).catch(()=>{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);alert('Payload copied.');});
 }
+// ─── ISSUE PHOTO ATTACHMENTS (ACC OSS signed-S3 flow) ─────────────────────────
+// ACC issues don't host files directly. Each photo: create Docs storage → get a signed
+// S3 URL → PUT the bytes → finalize → attach the storage urn to the issue.
+var _folderCache={};
+function _uuid(){return (self.crypto&&crypto.randomUUID)?crypto.randomUUID():('x'+Date.now()+'-'+Math.round(1e9*(0.5)));}
+async function getUploadFolderId(token){
+  const proj=ST.cfg.projectId,hub=ST.cfg.accountId;
+  if(_folderCache[proj])return _folderCache[proj];
+  const r=await fetch(`https://developer.api.autodesk.com/project/v1/hubs/${hub}/projects/${proj}/topFolders`,{headers:{'Authorization':'Bearer '+token}});
+  if(!r.ok)throw new Error('topFolders HTTP '+r.status);
+  const folders=(await r.json()).data||[];
+  const pf=folders.find(f=>f.attributes&&(f.attributes.name==='Project Files'||f.attributes.displayName==='Project Files'))||folders[0];
+  if(!pf)throw new Error('no Project Files folder');
+  _folderCache[proj]=pf.id;return pf.id;
+}
+async function attachIssuePhotos(issueId,photos,token,log){
+  let folderId;
+  try{folderId=await getUploadFolderId(token);}catch(e){logLine(log,'err','    ✗ Photos skipped: '+e.message);return;}
+  const proj=ST.cfg.projectId,bare=accPid(proj);
+  for(const ph of photos){
+    const blob=ph.watermarkedBlob||ph.blob;
+    const fn=ph.filename||('photo-'+_uuid()+'.jpg');
+    try{
+      // 1) create storage in Project Files
+      const st=await fetch(`https://developer.api.autodesk.com/data/v1/projects/${proj}/storage`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/vnd.api+json'},body:JSON.stringify({jsonapi:{version:'1.0'},data:{type:'objects',attributes:{name:fn},relationships:{target:{data:{type:'folders',id:folderId}}}}})});
+      if(!st.ok)throw new Error('storage '+st.status+' '+(await st.text().catch(()=>'')).slice(0,120));
+      const storageUrn=(await st.json()).data.id;
+      const m=storageUrn.match(/os\.object:([^/]+)\/(.+)$/);
+      if(!m)throw new Error('bad storage urn');
+      const bucketKey=m[1],objectKey=m[2];
+      // 2) signed S3 upload URL
+      const su=await fetch(`https://developer.api.autodesk.com/oss/v2/buckets/${bucketKey}/objects/${encodeURIComponent(objectKey)}/signeds3upload`,{headers:{'Authorization':'Bearer '+token}});
+      if(!su.ok)throw new Error('signeds3upload '+su.status);
+      const sj=await su.json();const url=(sj.urls&&sj.urls[0])||sj.url;const uploadKey=sj.uploadKey;
+      if(!url)throw new Error('no signed url');
+      // 3) PUT bytes straight to S3 (no auth header — the URL is pre-signed)
+      const put=await fetch(url,{method:'PUT',body:blob});
+      if(!put.ok)throw new Error('s3 PUT '+put.status);
+      // 4) finalize the upload
+      const fin=await fetch(`https://developer.api.autodesk.com/oss/v2/buckets/${bucketKey}/objects/${encodeURIComponent(objectKey)}/signeds3upload`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({uploadKey})});
+      if(!fin.ok)throw new Error('finalize '+fin.status+' '+(await fin.text().catch(()=>'')).slice(0,120));
+      // 5) attach the storage urn to the issue
+      const at=await fetch(`https://developer.api.autodesk.com/construction/issues/v1/projects/${bare}/attachments`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({domainEntityId:issueId,attachments:[{attachmentId:_uuid(),displayName:fn,fileName:objectKey,attachmentType:'issue-attachment',storageUrn:storageUrn}]})});
+      if(!at.ok)throw new Error('attach '+at.status+' '+(await at.text().catch(()=>'')).slice(0,160));
+      logLine(log,'ok','    ✓ Photo attached');
+    }catch(pe){logLine(log,'err','    ✗ Photo failed: '+pe.message);}
+  }
+}
 async function startSync(){
   const pending=(await DB.getAllIssues()).filter(i=>!i.synced&&!i.resolved);
   if(!pending.length){alert('No pending items.');return;}
@@ -2013,23 +2061,9 @@ async function startSync(){
       const formaId=data.id||(data.data&&data.data.id)||'created';
       iss.synced=true;iss.formaId=formaId;await DB.updateIssue(iss);
       logLine(log,'ok','  ✓ Issue created: '+formaId);
-      // Attach photos
+      // Attach photos via ACC's OSS signed-S3 flow
       const photos=await DB.getPhotos(iss.id);
-      for(const ph of photos){
-        try{
-          const ab=await blobToArrayBuffer(ph.watermarkedBlob||ph.blob);
-          const fn=ph.filename||'photo.jpg';const sz=ab.byteLength;
-          const up=await fetch(`https://developer.api.autodesk.com/construction/issues/v1/projects/${pid}/issue-attachments:upload`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({fileName:fn,fileSize:sz})});
-          if(!up.ok)throw new Error('Upload URL: HTTP '+up.status);
-          const ud=await up.json();
-          const uploadUrl=ud.uploadUrl||(ud.data&&ud.data.uploadUrl);
-          const attachId=ud.attachmentId||(ud.data&&ud.data.attachmentId);
-          if(!uploadUrl)throw new Error('No upload URL');
-          await fetch(uploadUrl,{method:'PUT',body:ph.watermarkedBlob||ph.blob,headers:{'Content-Type':'image/jpeg'}});
-          await fetch(`https://developer.api.autodesk.com/construction/issues/v1/projects/${pid}/issues/${formaId}/attachments`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({attachmentId:attachId,fileName:fn,fileSize:sz})});
-          logLine(log,'ok','    ✓ Photo attached');
-        }catch(pe){logLine(log,'err','    ✗ Photo failed: '+pe.message);}
-      }
+      if(photos.length)await attachIssuePhotos(formaId,photos,token,log);
       ok++;
     }catch(err){logLine(log,'err','  ✗ Failed: '+err.message);fail++;}
   }
