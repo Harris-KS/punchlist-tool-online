@@ -131,6 +131,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f0ed;color:#1a1a1a;mi
 .tag-trade{background:#e8f0ff;color:#1a3a8a;border:1px solid #b0c0f0;}
 .tag-co{background:#f0fff0;color:#1a5a1a;border:1px solid #a0d0a0;}
 .tag-synced{background:#e8f8f0;color:#0a6040;border:1px solid #80c8a8;}
+.tag-resolved{background:#e3f7e3;color:#0a7a2a;border:1px solid #7fce7f;font-weight:700;}
 .tag-pending{background:#fff8e8;color:#7a4a00;border:1px solid #e0c070;}
 .tag-wishlist{background:#fff0f8;color:#7a0060;border:1px solid #e0a0d0;}
 .photo-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px;}
@@ -548,7 +549,7 @@ const ROOMS={"1st":[{"num":1002,"type":"Regular"},{"num":1004,"type":"ADA"},{"nu
 // assignToSuper:true routes that trade to the superintendent USER instead of a sub company.
 const TRADES=[
   {id:'4ec8cc75-a9aa-5943-b823-5754576c8730',label:'General Item',subtypeId:'db0867f7-e431-5cd4-aa75-27fae09598bd',assignToSuper:true},
-  {id:'wishlist',label:'Wishlist',subtypeId:''},
+  {id:'wishlist',label:'Wishlist',subtypeId:'',assignToSuper:true},
   {id:'cd3f7cb1-8ac4-4415-8cc6-ac8d11b263af',label:'Framing / Drywall / Paint',subtypeId:'4029e7ba-e4ac-4f40-97fa-055f8d3248e6'},
   {id:'5202f877-66ea-4a6e-a2b0-a744aeaabedb',label:'Flooring / Carpet / LVT',subtypeId:'a00650f8-e9d2-46c5-a2a9-e19771a1e16e'},
   {id:'996a8d25-97c3-42bf-bcec-7a1dd359d060',label:'Electrical',subtypeId:'f33d10e5-2ac9-4bb8-9d4b-a7b776f26f9f'},
@@ -1559,6 +1560,7 @@ async function renderIssueList(){
           ${tl?`<span class="tag ${isWishlist?'tag-wishlist':'tag-trade'}">${esc(tl)}</span>`:''}
           ${iss.companyName?`<span class="tag tag-co">${esc(iss.companyName)}</span>`:''}
           ${iss.synced?`<span class="tag tag-synced">&#10003; Forma #${iss.formaId||'?'}</span>`:`<span class="tag tag-pending">Pending sync</span>`}
+          ${iss.resolved?`<span class="tag tag-resolved">&#9679; Resolved</span>`:''}
         </div>
         <div class="photo-row">${photoHtml}
           <button class="btn-photo" style="width:50px;height:50px;font-size:10px;padding:2px;" onclick="addPhoto(${iss.id})">📷<br>Add</button>
@@ -2032,6 +2034,27 @@ async function attachIssuePhotos(issueId,photos,token,log){
     }catch(pe){logLine(log,'err','    ✗ Photo failed: '+pe.message);}
   }
 }
+// On app open (online), reconcile with Forma: if a synced item's issue was closed in ACC,
+// mark it resolved locally. Uses the already-stored formaId. Silent on any failure.
+async function refreshResolvedFromForma(){
+  try{
+    if(!navigator.onLine||!ST.cfg.projectId)return;
+    const all=await DB.getAllIssues();
+    const synced=all.filter(i=>i.synced&&i.formaId&&!i.resolved);
+    if(!synced.length)return;
+    const auth=await DB.getSetting('auth',null);
+    if(!auth||!auth.accessToken)return;
+    const token=auth.accessToken;
+    const bare=accPid(ST.cfg.projectId);
+    const items=await accFetchAll(`https://developer.api.autodesk.com/construction/issues/v1/projects/${bare}/issues`,token);
+    const statusById={};items.forEach(it=>{if(it&&it.id)statusById[it.id]=String(it.status||'').toLowerCase();});
+    let changed=0;
+    for(const i of synced){
+      if(statusById[i.formaId]==='closed'){i.resolved=true;await DB.updateIssue(i);changed++;}
+    }
+    if(changed)await renderAll();
+  }catch(e){/* offline / token / API error — skip quietly */}
+}
 async function startSync(){
   const pending=(await DB.getAllIssues()).filter(i=>!i.synced&&!i.resolved);
   if(!pending.length){alert('No pending items.');return;}
@@ -2225,6 +2248,7 @@ window.addEventListener('resize',()=>{if(ST.room){resizePanelCanvas();loadAndDra
   await offerMigration();
   setView('grid');
   await renderAll();
+  refreshResolvedFromForma();  // background: reconcile resolved status from Forma (closed issues)
 })().catch(err=>{document.body.innerHTML=`<div style="padding:40px;text-align:center;font-family:Arial;"><h2 style="color:#c00">App failed to start</h2><p style="margin-top:12px;color:#555;">${err.message}</p><p style="margin-top:8px;font-size:12px;color:#888;">Try opening in Chrome or Edge. IndexedDB required.</p></div>`;});
 </script>
 </body>
