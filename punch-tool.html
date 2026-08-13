@@ -388,6 +388,15 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f0ed;color:#1a1a1a;mi
         </div>
       </div>
       <div class="modal-section">
+        <h3>Backup &amp; Restore</h3>
+        <div class="setup-note" style="margin-bottom:8px;">Saves your punch list (items, dots, and photos for un‑synced work) to a "Punch Walk Backups" folder in this project's Files — so you can recover it or continue on another device. Runs automatically after each sync.</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-blue btn-sm" onclick="backupNow(false)">&#8593; Back up now</button>
+          <button class="btn btn-ghost btn-sm" onclick="restoreFromAcc()">&#8595; Restore from ACC</button>
+          <span id="backup-status" style="font-size:11px;color:#888;"></span>
+        </div>
+      </div>
+      <div class="modal-section">
         <h3>Floor Plan Image Paths</h3>
         <div class="setup-note" style="margin-bottom:8px;">Base folder for complete floor plans (relative to this HTML file). E.g. <code>./floor-plans/complete/</code></div>
         <input type="text" class="setup-input" id="cfg-fp-base" style="width:100%;" placeholder="./floor-plans/complete/">
@@ -2167,6 +2176,106 @@ async function buildLocationPhoto(it){
     return {blob,filename:('location-'+String(it.areaLabel||it.areaKey||'loc').replace(/[^\w-]+/g,'_')+'.jpg')};
   }catch(e){return null;}
 }
+// ─── BACKUP / RESTORE to Autodesk Docs (project Files) ────────────────────────
+const BACKUP_FOLDER_NAME='Punch Walk Backups';
+var _backupFolderId={}; // by projectId
+function _backupFileName(){return 'PunchWalk-'+accPid(ST.cfg.projectId)+'.json';}
+function _dmHeaders(token){return {'Authorization':'Bearer '+token,'Content-Type':'application/vnd.api+json'};}
+function _bstat(m,c){const s=document.getElementById('backup-status');if(s){s.textContent=m;s.style.color=c||'#888';}}
+// create storage -> signed S3 -> PUT -> finalize; returns the storage urn
+async function ossUploadToFolder(blob,filename,folderId,token){
+  const proj=ST.cfg.projectId;
+  const st=await fetch(`https://developer.api.autodesk.com/data/v1/projects/${proj}/storage`,{method:'POST',headers:_dmHeaders(token),body:JSON.stringify({jsonapi:{version:'1.0'},data:{type:'objects',attributes:{name:filename},relationships:{target:{data:{type:'folders',id:folderId}}}}})});
+  if(!st.ok)throw new Error('storage '+st.status+' '+(await st.text().catch(()=>'')).slice(0,140));
+  const storageUrn=(await st.json()).data.id;
+  const m=storageUrn.match(/os\.object:([^/]+)\/(.+)$/);if(!m)throw new Error('bad storage urn');
+  const bucketKey=m[1],objectKey=m[2];
+  const su=await fetch(`https://developer.api.autodesk.com/oss/v2/buckets/${bucketKey}/objects/${encodeURIComponent(objectKey)}/signeds3upload`,{headers:{'Authorization':'Bearer '+token}});
+  if(!su.ok)throw new Error('signeds3upload '+su.status);
+  const sj=await su.json();const url=(sj.urls&&sj.urls[0])||sj.url;const uploadKey=sj.uploadKey;if(!url)throw new Error('no signed url');
+  const put=await fetch(url,{method:'PUT',body:blob});if(!put.ok)throw new Error('s3 PUT '+put.status);
+  const fin=await fetch(`https://developer.api.autodesk.com/oss/v2/buckets/${bucketKey}/objects/${encodeURIComponent(objectKey)}/signeds3upload`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({uploadKey})});
+  if(!fin.ok)throw new Error('finalize '+fin.status+' '+(await fin.text().catch(()=>'')).slice(0,140));
+  return storageUrn;
+}
+async function _folderContents(folderId,token){
+  const r=await fetch(`https://developer.api.autodesk.com/data/v1/projects/${ST.cfg.projectId}/folders/${encodeURIComponent(folderId)}/contents`,{headers:{'Authorization':'Bearer '+token}});
+  if(!r.ok)throw new Error('folder contents '+r.status);
+  return (await r.json()).data||[];
+}
+async function getBackupFolderId(token){
+  const proj=ST.cfg.projectId;
+  if(_backupFolderId[proj])return _backupFolderId[proj];
+  const parent=await getUploadFolderId(token);
+  const contents=await _folderContents(parent,token);
+  const found=contents.find(x=>x.type==='folders'&&x.attributes&&(x.attributes.name===BACKUP_FOLDER_NAME||x.attributes.displayName===BACKUP_FOLDER_NAME));
+  if(found){_backupFolderId[proj]=found.id;return found.id;}
+  const cr=await fetch(`https://developer.api.autodesk.com/data/v1/projects/${proj}/folders`,{method:'POST',headers:_dmHeaders(token),body:JSON.stringify({jsonapi:{version:'1.0'},data:{type:'folders',attributes:{name:BACKUP_FOLDER_NAME,extension:{type:'folders:autodesk.bim360:Folder',version:'1.0'}},relationships:{parent:{data:{type:'folders',id:parent}}}}})});
+  if(!cr.ok)throw new Error('create folder '+cr.status+' '+(await cr.text().catch(()=>'')).slice(0,180));
+  _backupFolderId[proj]=(await cr.json()).data.id;return _backupFolderId[proj];
+}
+async function _findBackupItem(folderId,token){
+  const name=_backupFileName();
+  return (await _folderContents(folderId,token)).find(x=>x.type==='items'&&x.attributes&&(x.attributes.displayName===name||x.attributes.name===name))||null;
+}
+async function _buildBackupBlob(){
+  const issues=await DB.getAllIssues();
+  const photos=[];
+  for(const iss of issues){
+    if(iss.synced)continue; // synced work + its photos are already safe in Forma
+    for(const p of await DB.getPhotos(iss.id)){const b=p.watermarkedBlob||p.blob;if(b)photos.push({issueId:iss.id,filename:p.filename||'photo.jpg',data:await blobToBase64(b)});}
+  }
+  return new Blob([JSON.stringify({v:1,at:Date.now(),projectId:ST.cfg.projectId,projectName:ST.cfg.accProjectName||'',issues,photos})],{type:'application/json'});
+}
+async function backupNow(silent){
+  if(!navigator.onLine){_bstat('Offline — will back up when online.','#c0392b');return false;}
+  if(!ST.cfg.projectId){_bstat('Pick a project first.','#c0392b');return false;}
+  try{
+    if(!silent)_bstat('Backing up…');
+    const auth=await DB.getSetting('auth',null);if(!auth||!auth.accessToken)throw new Error('not signed in');
+    const token=auth.accessToken;
+    const folderId=await getBackupFolderId(token);
+    const storageUrn=await ossUploadToFolder(await _buildBackupBlob(),_backupFileName(),folderId,token);
+    const fn=_backupFileName();const existing=await _findBackupItem(folderId,token);
+    if(existing){
+      const vr=await fetch(`https://developer.api.autodesk.com/data/v1/projects/${ST.cfg.projectId}/versions`,{method:'POST',headers:_dmHeaders(token),body:JSON.stringify({jsonapi:{version:'1.0'},data:{type:'versions',attributes:{name:fn,extension:{type:'versions:autodesk.bim360:File',version:'1.0'}},relationships:{item:{data:{type:'items',id:existing.id}},storage:{data:{type:'objects',id:storageUrn}}}}})});
+      if(!vr.ok)throw new Error('new version '+vr.status+' '+(await vr.text().catch(()=>'')).slice(0,220));
+    }else{
+      const cr=await fetch(`https://developer.api.autodesk.com/data/v1/projects/${ST.cfg.projectId}/items`,{method:'POST',headers:_dmHeaders(token),body:JSON.stringify({jsonapi:{version:'1.0'},data:{type:'items',attributes:{displayName:fn,extension:{type:'items:autodesk.bim360:File',version:'1.0'}},relationships:{tip:{data:{type:'versions',id:'1'}},parent:{data:{type:'folders',id:folderId}}}},included:[{type:'versions',id:'1',attributes:{name:fn,extension:{type:'versions:autodesk.bim360:File',version:'1.0'}},relationships:{storage:{data:{type:'objects',id:storageUrn}}}}]})});
+      if(!cr.ok)throw new Error('create item '+cr.status+' '+(await cr.text().catch(()=>'')).slice(0,220));
+    }
+    _bstat('✓ Backed up '+new Date().toLocaleTimeString(),'#1a5a2a');
+    return true;
+  }catch(e){_bstat('✗ Backup failed: '+e.message,'#c0392b');if(!silent)showToast('Backup failed: '+e.message);return false;}
+}
+async function restoreFromAcc(){
+  if(!ST.cfg.projectId){_bstat('Pick a project first.','#c0392b');return;}
+  try{
+    _bstat('Looking for backup…');
+    const auth=await DB.getSetting('auth',null);if(!auth||!auth.accessToken)throw new Error('not signed in');
+    const token=auth.accessToken;
+    const folderId=await getBackupFolderId(token);
+    const item=await _findBackupItem(folderId,token);
+    if(!item){_bstat('No backup found for this project.','#c0392b');return;}
+    const tipR=await fetch(`https://developer.api.autodesk.com/data/v1/projects/${ST.cfg.projectId}/items/${encodeURIComponent(item.id)}/tip`,{headers:{'Authorization':'Bearer '+token}});
+    if(!tipR.ok)throw new Error('tip '+tipR.status);
+    const tip=await tipR.json();
+    const storageUrn=tip.data&&tip.data.relationships&&tip.data.relationships.storage&&tip.data.relationships.storage.data&&tip.data.relationships.storage.data.id;
+    if(!storageUrn)throw new Error('no storage on tip');
+    const m=storageUrn.match(/os\.object:([^/]+)\/(.+)$/);if(!m)throw new Error('bad urn');
+    const dl=await fetch(`https://developer.api.autodesk.com/oss/v2/buckets/${m[1]}/objects/${encodeURIComponent(m[2])}/signeds3download`,{headers:{'Authorization':'Bearer '+token}});
+    if(!dl.ok)throw new Error('signeds3download '+dl.status);
+    const dj=await dl.json();const durl=dj.url||(dj.urls&&dj.urls[0]);if(!durl)throw new Error('no download url');
+    const data=await (await fetch(durl)).json();
+    if(!await uiConfirm('Restore backup from '+new Date(data.at).toLocaleString()+'?\n\nThis REPLACES this device’s punch list with '+((data.issues||[]).length)+' item(s) from ACC.','Restore'))return;
+    for(const i of await DB.getAllIssues()){await DB.deletePhotosByIssue(i.id);await DB.deleteIssue(i.id);}
+    const idMap={};
+    for(const iss of (data.issues||[])){const old=iss.id;delete iss.id;idMap[old]=await DB.addIssue(iss);}
+    for(const p of (data.photos||[])){const nid=idMap[p.issueId];if(!nid)continue;const blob=await (await fetch(p.data)).blob();await DB.addPhoto({issueId:nid,blob:blob,watermarkedBlob:blob,filename:p.filename,createdAt:Date.now()});}
+    _bstat('✓ Restored '+((data.issues||[]).length)+' item(s).','#1a5a2a');
+    await renderAll();
+  }catch(e){_bstat('✗ Restore failed: '+e.message,'#c0392b');}
+}
 async function startSync(){
   const pending=(await DB.getAllIssues()).filter(i=>!i.synced&&!i.resolved);
   if(!pending.length){alert('No pending items.');return;}
@@ -2214,6 +2323,7 @@ async function startSync(){
   logLine(log,'ok',`Done: ${ok} synced, ${fail} failed.`);
   btn.disabled=false;btn.textContent='Start Sync';
   await renderAll();
+  backupNow(true);   // auto-back up after each sync (protects any remaining un-synced work)
 }
 async function syncOne(issueId){
   const issues=await DB.getAllIssues();
