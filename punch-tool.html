@@ -2177,9 +2177,23 @@ async function buildLocationPhoto(it){
   }catch(e){return null;}
 }
 // ─── BACKUP / RESTORE to Autodesk Docs (project Files) ────────────────────────
-const BACKUP_FOLDER_NAME='Punch Walk Backups';
-var _backupFolderId={}; // by projectId
-function _backupFileName(){return 'PunchWalk-'+accPid(ST.cfg.projectId)+'.json';}
+const BACKUP_MAIN_FOLDER='Punchlist_Tool_backup';
+var _bkMainFolder={}; // projectId -> main folder id
+function _backupFileName(){return 'punchwalk_backup.json';}
+function _todayStamp(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function _subfolderName(dateStr){return dateStr+'-punchwalk_backup';}
+// Simple in-app picker modal -> resolves the chosen value (or null).
+function uiPick(msg,options){
+  return new Promise(resolve=>{
+    const ov=document.createElement('div');ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    const box=document.createElement('div');box.style.cssText='background:#fff;border-radius:10px;max-width:360px;width:100%;padding:18px;box-shadow:0 10px 34px rgba(0,0,0,.35);max-height:80vh;overflow:auto;';
+    box.innerHTML='<div style="font-size:14px;font-weight:700;color:#1c2b3a;margin-bottom:12px;">'+esc(msg)+'</div>';
+    options.forEach(o=>{const b=document.createElement('button');b.textContent=o.label;b.style.cssText='display:block;width:100%;text-align:left;padding:10px 12px;margin-bottom:6px;border:1px solid #ccc;background:#f8f9fa;border-radius:6px;font-size:13px;cursor:pointer;';b.onclick=()=>{ov.remove();resolve(o.value);};box.appendChild(b);});
+    const c=document.createElement('button');c.textContent='Cancel';c.style.cssText='display:block;width:100%;padding:9px;margin-top:4px;border:none;background:#fff;color:#888;font-size:13px;cursor:pointer;';c.onclick=()=>{ov.remove();resolve(null);};box.appendChild(c);
+    ov.addEventListener('click',e=>{if(e.target===ov){ov.remove();resolve(null);}});
+    ov.appendChild(box);document.body.appendChild(ov);
+  });
+}
 function _dmHeaders(token){return {'Authorization':'Bearer '+token,'Content-Type':'application/vnd.api+json'};}
 function _bstat(m,c){const s=document.getElementById('backup-status');if(s){s.textContent=m;s.style.color=c||'#888';}}
 // create storage -> signed S3 -> PUT -> finalize; returns the storage urn
@@ -2203,16 +2217,21 @@ async function _folderContents(folderId,token){
   if(!r.ok)throw new Error('folder contents '+r.status);
   return (await r.json()).data||[];
 }
-async function getBackupFolderId(token){
+async function _findOrCreateFolder(parentId,name,token){
+  const contents=await _folderContents(parentId,token);
+  const f=contents.find(x=>x.type==='folders'&&x.attributes&&(x.attributes.name===name||x.attributes.displayName===name));
+  if(f)return f.id;
+  const cr=await fetch(`https://developer.api.autodesk.com/data/v1/projects/${ST.cfg.projectId}/folders`,{method:'POST',headers:_dmHeaders(token),body:JSON.stringify({jsonapi:{version:'1.0'},data:{type:'folders',attributes:{name:name,extension:{type:'folders:autodesk.bim360:Folder',version:'1.0'}},relationships:{parent:{data:{type:'folders',id:parentId}}}}})});
+  if(!cr.ok)throw new Error('create folder "'+name+'" '+cr.status+' '+(await cr.text().catch(()=>'')).slice(0,180));
+  return (await cr.json()).data.id;
+}
+// Main folder "Punchlist_Tool_backup" under Project Files (cached per project).
+async function getBackupMainFolder(token){
   const proj=ST.cfg.projectId;
-  if(_backupFolderId[proj])return _backupFolderId[proj];
+  if(_bkMainFolder[proj])return _bkMainFolder[proj];
   const parent=await getUploadFolderId(token);
-  const contents=await _folderContents(parent,token);
-  const found=contents.find(x=>x.type==='folders'&&x.attributes&&(x.attributes.name===BACKUP_FOLDER_NAME||x.attributes.displayName===BACKUP_FOLDER_NAME));
-  if(found){_backupFolderId[proj]=found.id;return found.id;}
-  const cr=await fetch(`https://developer.api.autodesk.com/data/v1/projects/${proj}/folders`,{method:'POST',headers:_dmHeaders(token),body:JSON.stringify({jsonapi:{version:'1.0'},data:{type:'folders',attributes:{name:BACKUP_FOLDER_NAME,extension:{type:'folders:autodesk.bim360:Folder',version:'1.0'}},relationships:{parent:{data:{type:'folders',id:parent}}}}})});
-  if(!cr.ok)throw new Error('create folder '+cr.status+' '+(await cr.text().catch(()=>'')).slice(0,180));
-  _backupFolderId[proj]=(await cr.json()).data.id;return _backupFolderId[proj];
+  const id=await _findOrCreateFolder(parent,BACKUP_MAIN_FOLDER,token);
+  _bkMainFolder[proj]=id;return id;
 }
 async function _findBackupItem(folderId,token){
   const name=_backupFileName();
@@ -2234,7 +2253,8 @@ async function backupNow(silent){
     if(!silent)_bstat('Backing up…');
     const auth=await DB.getSetting('auth',null);if(!auth||!auth.accessToken)throw new Error('not signed in');
     const token=auth.accessToken;
-    const folderId=await getBackupFolderId(token);
+    const main=await getBackupMainFolder(token);
+    const folderId=await _findOrCreateFolder(main,_subfolderName(_todayStamp()),token);   // dated sub-folder per punch list
     const storageUrn=await ossUploadToFolder(await _buildBackupBlob(),_backupFileName(),folderId,token);
     const fn=_backupFileName();const existing=await _findBackupItem(folderId,token);
     if(existing){
@@ -2254,9 +2274,14 @@ async function restoreFromAcc(){
     _bstat('Looking for backup…');
     const auth=await DB.getSetting('auth',null);if(!auth||!auth.accessToken)throw new Error('not signed in');
     const token=auth.accessToken;
-    const folderId=await getBackupFolderId(token);
+    const main=await getBackupMainFolder(token);
+    const subs=(await _folderContents(main,token)).filter(x=>x.type==='folders').map(x=>({id:x.id,name:(x.attributes&&(x.attributes.name||x.attributes.displayName))||''})).sort((a,b)=>b.name.localeCompare(a.name));
+    if(!subs.length){_bstat('No backups found for this project.','#c0392b');return;}
+    let folderId;
+    if(subs.length===1)folderId=subs[0].id;
+    else{folderId=await uiPick('Restore which punch list?',subs.map(s=>({label:s.name,value:s.id})));if(!folderId)return;}
     const item=await _findBackupItem(folderId,token);
-    if(!item){_bstat('No backup found for this project.','#c0392b');return;}
+    if(!item){_bstat('No backup file in that folder.','#c0392b');return;}
     const tipR=await fetch(`https://developer.api.autodesk.com/data/v1/projects/${ST.cfg.projectId}/items/${encodeURIComponent(item.id)}/tip`,{headers:{'Authorization':'Bearer '+token}});
     if(!tipR.ok)throw new Error('tip '+tipR.status);
     const tip=await tipR.json();
