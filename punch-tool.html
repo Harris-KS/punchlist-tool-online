@@ -2225,12 +2225,35 @@ async function _findOrCreateFolder(parentId,name,token){
   if(!cr.ok)throw new Error('create folder "'+name+'" '+cr.status+' '+(await cr.text().catch(()=>'')).slice(0,180));
   return (await cr.json()).data.id;
 }
-// Main folder "Punchlist_Tool_backup" under Project Files (cached per project).
+// Industry roles (job titles) for the project — needed to grant folder access by role.
+async function getIndustryRoles(token){
+  const acct=accPid(ST.cfg.accountId),proj=accPid(ST.cfg.projectId);
+  const r=await fetch(`https://developer.api.autodesk.com/hq/v1/accounts/${acct}/projects/${proj}/industry_roles`,{headers:{'Authorization':'Bearer '+token}});
+  if(!r.ok)throw new Error('industry_roles HTTP '+r.status);
+  const j=await r.json();return Array.isArray(j)?j:(j.results||j.data||[]);
+}
+// Restrict the backup folder to Project Admin / Manager / Engineer roles (keep subs out).
+async function restrictBackupFolder(folderId,token){
+  const roles=await getIndustryRoles(token);
+  const KW=['admin','manager','engineer'];
+  const picked=roles.filter(r=>{const n=String(r.name||'').toLowerCase();return KW.some(k=>n.includes(k));});
+  if(!picked.length)throw new Error('no Admin/Manager/Engineer roles found to grant');
+  const perms=picked.map(r=>({subjectId:r.id,subjectType:'ROLE',actions:['VIEW','DOWNLOAD','COLLABORATE','PUBLISH','EDIT','CONTROL']}));
+  const bare=accPid(ST.cfg.projectId);
+  const pr=await fetch(`https://developer.api.autodesk.com/bim360/docs/v1/projects/${bare}/folders/${encodeURIComponent(folderId)}/permissions:batch-create`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(perms)});
+  if(!pr.ok)throw new Error('permissions '+pr.status+' '+(await pr.text().catch(()=>'')).slice(0,200));
+  showToast('Backup folder locked to '+picked.map(r=>r.name).join(', ')+'. Verify in ACC.');
+}
+// Main folder "Punchlist_Tool_backup" under Project Files (created + restricted once, cached per project).
 async function getBackupMainFolder(token){
   const proj=ST.cfg.projectId;
   if(_bkMainFolder[proj])return _bkMainFolder[proj];
   const parent=await getUploadFolderId(token);
-  const id=await _findOrCreateFolder(parent,BACKUP_MAIN_FOLDER,token);
+  const contents=await _folderContents(parent,token);
+  const found=contents.find(x=>x.type==='folders'&&x.attributes&&(x.attributes.name===BACKUP_MAIN_FOLDER||x.attributes.displayName===BACKUP_MAIN_FOLDER));
+  if(found){_bkMainFolder[proj]=found.id;return found.id;}
+  const id=await _findOrCreateFolder(parent,BACKUP_MAIN_FOLDER,token);  // create (confirmed not found above)
+  try{await restrictBackupFolder(id,token);}catch(e){showToast('Backup folder made, but auto-restrict failed — set its permissions in ACC. ('+e.message+')');}
   _bkMainFolder[proj]=id;return id;
 }
 async function _findBackupItem(folderId,token){
