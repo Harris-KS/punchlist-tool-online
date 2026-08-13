@@ -2070,11 +2070,18 @@ async function getUploadFolderId(token){
   if(!pf)throw new Error('no Project Files folder');
   _folderCache[proj]=pf.id;return pf.id;
 }
+// Run an async worker over items with limited concurrency — much faster than serial, without
+// firing hundreds of requests at once.
+async function runPool(items,concurrency,worker){
+  let idx=0;const runners=[];const n=Math.min(concurrency,items.length);
+  for(let k=0;k<n;k++)runners.push((async()=>{while(idx<items.length){const i=idx++;await worker(items[i],i);}})());
+  await Promise.all(runners);
+}
 async function attachIssuePhotos(issueId,photos,token,log){
   let folderId;
   try{folderId=await getUploadFolderId(token);}catch(e){logLine(log,'err','    ✗ Photos skipped: '+e.message);return;}
   const proj=ST.cfg.projectId,bare=accPid(proj);
-  for(const ph of photos){
+  await runPool(photos,3,async(ph)=>{
     const blob=ph.watermarkedBlob||ph.blob;
     const fn=ph.filename||('photo-'+_uuid()+'.jpg');
     try{
@@ -2101,7 +2108,7 @@ async function attachIssuePhotos(issueId,photos,token,log){
       if(!at.ok)throw new Error('attach '+at.status+' '+(await at.text().catch(()=>'')).slice(0,160));
       logLine(log,'ok','    ✓ Photo attached');
     }catch(pe){logLine(log,'err','    ✗ Photo failed: '+pe.message);}
-  }
+  });
 }
 // On app open (online), reconcile with Forma: if a synced item's issue was closed in ACC,
 // mark it resolved locally. Uses the already-stored formaId. Silent on any failure.
@@ -2170,14 +2177,12 @@ async function startSync(){
   const pid=accPid(ST.cfg.projectId);
   const due=addBusinessDays(new Date(),5);
   const watcherIds=(ST.cfg.watchers||[]).filter(k=>k&&!k.startsWith('email:'));
-  let ok=0,fail=0;
-  for(let i=0;i<pending.length;i++){
-    const iss=pending[i];
-    document.getElementById('prog-bar').style.width=Math.round((i/pending.length)*100)+'%';
-    logLine(log,'inf',`[${i+1}/${pending.length}] ${iss.areaLabel||iss.areaKey} · ${tradeLabel(iss.tradeId)} → ${iss.companyName||'(superintendent)'}`);
+  let ok=0,fail=0,done=0;
+  const bump=()=>{done++;document.getElementById('prog-bar').style.width=Math.round(done/pending.length*100)+'%';};
+  await runPool(pending,4,async(iss)=>{
     try{
       const subtypeId=resolveAccSubtype(iss.tradeId);
-      if(!subtypeId){logLine(log,'err',`  SKIPPED — "${tradeLabel(iss.tradeId)}" has no Forma subtype yet; create one issue of that type in ACC, then re-sync.`);fail++;continue;}
+      if(!subtypeId){logLine(log,'err',`  SKIPPED — "${tradeLabel(iss.tradeId)}" has no Forma subtype yet; create one issue of that type in ACC, then re-sync.`);fail++;bump();return;}
       const trade=getTrade(iss.tradeId);
       const body={title:`${iss.areaLabel||iss.areaKey} - ${iss.description}`,description:`Location: ${iss.areaLabel||iss.areaKey}\n\n${iss.description}`,issueSubtypeId:subtypeId,status:'open',dueDate:due};
       if(trade&&trade.assignToSuper){const sup=superMember();if(sup&&sup.id){body.assignedTo=sup.id;body.assignedToType='user';}}
@@ -2196,8 +2201,9 @@ async function startSync(){
       const toAttach=locPhoto?[locPhoto].concat(photos):photos;
       if(toAttach.length)await attachIssuePhotos(formaId,toAttach,token,log);
       ok++;
-    }catch(err){logLine(log,'err','  ✗ Failed: '+err.message);fail++;}
-  }
+    }catch(err){logLine(log,'err','  ✗ Failed ('+(iss.areaLabel||iss.areaKey)+'): '+err.message);fail++;}
+    bump();
+  });
   // Push any pending resolve/reopen changes to already-synced Forma issues
   const statusChanges=(await DB.getAllIssues()).filter(i=>i.synced&&i.formaId&&i.pendingStatus);
   for(const i of statusChanges){
