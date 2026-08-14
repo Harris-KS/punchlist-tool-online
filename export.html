@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-store">
+<title>Punch List — Data Rescue Export</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#1c2b3a;color:#eef2f6;padding:16px;line-height:1.45}
+  .card{max-width:720px;margin:0 auto;background:#22344a;border:1px solid #33475f;border-radius:14px;padding:18px 18px 22px}
+  h1{font-size:19px;margin:0 0 4px}
+  .sub{color:#9fb3c7;font-size:13px;margin:0 0 16px}
+  #status{font-size:14px;padding:10px 12px;border-radius:8px;background:#16232f;border:1px solid #2c3f54;margin-bottom:14px;white-space:pre-wrap}
+  table{width:100%;border-collapse:collapse;margin:10px 0 4px;font-size:14px}
+  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid #33475f}
+  th{color:#9fb3c7;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+  tr.hl td{background:#2a4a2f;color:#d8f5df;font-weight:700}
+  .btns{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+  button{font-size:15px;font-weight:700;padding:14px 16px;border:0;border-radius:10px;cursor:pointer;color:#fff}
+  .primary{background:#2e7d43}.primary:active{background:#256035}
+  .secondary{background:#3a5a7a}.secondary:active{background:#2f4a63}
+  button:disabled{opacity:.45}
+  .note{font-size:12px;color:#8ea3b8;margin-top:14px}
+  code{background:#16232f;padding:1px 5px;border-radius:4px;font-size:12px}
+  .big{font-size:15px;color:#eef2f6}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🛟 Punch List — Data Rescue Export</h1>
+  <p class="sub">Reads this browser's local punch-list database and lets you download it as a file to send to Claude. Nothing is deleted or changed.</p>
+  <div id="status">Reading local database…</div>
+  <div id="summary"></div>
+  <div class="btns">
+    <button id="btnData" class="primary" disabled>⬇︎ Download data only (small — text, trades, dots)</button>
+    <button id="btnFull" class="secondary" disabled>⬇︎ Download EVERYTHING incl. photos (large)</button>
+  </div>
+  <div class="note">
+    Open this page in the <b>same browser you did the punch list in</b>. If a count looks right below, tap a download button — the file lands in your <b>Downloads</b> folder, then upload it to Claude.
+    <br><br>⚠️ Do <b>not</b> clear this site's data or remove the app icon — that would erase the punch list.
+  </div>
+</div>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const KNOWN = ['casablanca_v3','casablanca_v2','casablanca','punchwalk','punch-walk'];
+let DUMP = null;          // full dump incl. base64 photos
+let DUMP_LIGHT = null;    // same but photos stripped to metadata
+
+function blobToB64(b){return new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.onerror=()=>r(null);fr.readAsDataURL(b);});}
+
+// deep-clone a record, turning any Blob/File into {__blob:true,type,size,dataUrl}
+async function encode(val){
+  if(val instanceof Blob){
+    return {__blob:true, type:val.type||'', size:val.size, dataUrl:await blobToB64(val)};
+  }
+  if(Array.isArray(val)){const out=[];for(const v of val)out.push(await encode(v));return out;}
+  if(val && typeof val==='object'){
+    const out={};for(const k of Object.keys(val))out[k]=await encode(val[k]);return out;
+  }
+  return val;
+}
+
+function openDB(name){
+  return new Promise((res)=>{
+    let created=false;
+    const r=indexedDB.open(name);
+    r.onupgradeneeded=()=>{created=true;};   // db didn't exist — we just made an empty one
+    r.onsuccess=()=>{const db=r.result; if(created){db.close(); try{indexedDB.deleteDatabase(name);}catch(e){} res(null);} else res(db);};
+    r.onerror=()=>res(null);
+    r.onblocked=()=>res(null);
+  });
+}
+function getAll(store){return new Promise(res=>{try{const rq=store.getAll();rq.onsuccess=()=>res(rq.result||[]);rq.onerror=()=>res([]);}catch(e){res([]);}});}
+
+async function listDbNames(){
+  let names=[];
+  if(indexedDB.databases){try{names=(await indexedDB.databases()).map(d=>d.name).filter(Boolean);}catch(e){}}
+  for(const k of KNOWN) if(!names.includes(k)) names.push(k);
+  return names;
+}
+
+function floorTable(issues){
+  const by={};
+  for(const it of issues){const f=(it && (it.floor!=null?String(it.floor):'?'))||'?';by[f]=(by[f]||0)+1;}
+  const keys=Object.keys(by).sort();
+  if(!keys.length) return '<p class="big">No punch items found in this browser. Make sure you opened this in the same browser/app you used in the field.</p>';
+  let rows='';
+  for(const k of keys){const hl=/^4(th|$)/.test(k)?' class="hl"':'';rows+=`<tr${hl}><td>${k} Floor</td><td>${by[k]}</td></tr>`;}
+  return `<table><tr><th>Floor</th><th>Items</th></tr>${rows}</table>`;
+}
+
+(async function(){
+  try{
+    const names=await listDbNames();
+    const dump={exportedAt:new Date().toISOString(),origin:location.origin,href:location.href,userAgent:navigator.userAgent,databases:{},localStorage:{}};
+    try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);dump.localStorage[k]=localStorage.getItem(k);}}catch(e){}
+
+    let totalIssues=[], totalPhotos=0;
+    for(const name of names){
+      const db=await openDB(name);
+      if(!db) continue;
+      const stores=Array.from(db.objectStoreNames);
+      if(!stores.length){db.close();continue;}
+      const dbOut={};
+      const tx=db.transaction(stores,'readonly');
+      for(const s of stores){
+        const raw=await getAll(tx.objectStore(s));
+        dbOut[s]=raw;
+        if(s==='photos') totalPhotos+=raw.length;
+        if(s==='issues') totalIssues=totalIssues.concat(raw);
+      }
+      dump.databases[name]=dbOut;
+      db.close();
+    }
+
+    // light version: strip photo blobs down to metadata (keeps issues fully intact)
+    const light=JSON.parse(JSON.stringify(dump, (k,v)=>{
+      if(v instanceof Blob) return '[blob '+(v.size||0)+'B]';
+      return v;
+    }));
+    for(const dbn of Object.keys(light.databases)){
+      const ph=light.databases[dbn].photos;
+      if(Array.isArray(ph)) light.databases[dbn].photos = ph.map(p=>{const q=Object.assign({},p);delete q.blob;delete q.watermarkedBlob;delete q.dataUrl;delete q.data;return q;});
+    }
+    DUMP_LIGHT=light;
+
+    // build encoded full dump (blobs -> base64) lazily on demand to keep load fast:
+    window.__buildFull=async function(){
+      const full={exportedAt:dump.exportedAt,origin:dump.origin,href:dump.href,userAgent:dump.userAgent,localStorage:dump.localStorage,databases:{}};
+      for(const dbn of Object.keys(dump.databases)){
+        full.databases[dbn]={};
+        for(const s of Object.keys(dump.databases[dbn])){
+          full.databases[dbn][s]=await encode(dump.databases[dbn][s]);
+        }
+      }
+      return full;
+    };
+
+    $('status').textContent=`Found ${totalIssues.length} punch item(s) and ${totalPhotos} photo(s) across ${Object.keys(dump.databases).length} database(s).`;
+    $('summary').innerHTML=floorTable(totalIssues);
+    $('btnData').disabled=false;
+    $('btnFull').disabled=totalPhotos===0 && totalIssues.length===0;
+  }catch(e){
+    $('status').textContent='Error reading database: '+(e&&e.message||e);
+  }
+})();
+
+function download(obj,fname,setBusy){
+  const blob=new Blob([JSON.stringify(obj)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=fname;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},2000);
+  if(setBusy)setBusy();
+}
+function stamp(){const d=new Date();const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;}
+
+$('btnData').onclick=()=>{ if(!DUMP_LIGHT)return; download(DUMP_LIGHT,`punchlist-data-${stamp()}.json`); };
+$('btnFull').onclick=async()=>{
+  const b=$('btnFull'); const old=b.textContent; b.disabled=true; b.textContent='Packaging photos… (may take a moment)';
+  try{ const full=await window.__buildFull(); download(full,`punchlist-full-${stamp()}.json`); }
+  catch(e){ alert('Failed to package photos: '+(e&&e.message||e)); }
+  b.textContent=old; b.disabled=false;
+};
+</script>
+</body>
+</html>
