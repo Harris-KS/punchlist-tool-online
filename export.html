@@ -8,37 +8,41 @@
 <style>
   *{box-sizing:border-box}
   body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#1c2b3a;color:#eef2f6;padding:16px;line-height:1.45}
-  .card{max-width:720px;margin:0 auto;background:#22344a;border:1px solid #33475f;border-radius:14px;padding:18px 18px 22px}
+  .card{max-width:760px;margin:0 auto;background:#22344a;border:1px solid #33475f;border-radius:14px;padding:18px 18px 22px}
   h1{font-size:19px;margin:0 0 4px}
   .sub{color:#9fb3c7;font-size:13px;margin:0 0 16px}
   #status{font-size:14px;padding:10px 12px;border-radius:8px;background:#16232f;border:1px solid #2c3f54;margin-bottom:14px;white-space:pre-wrap}
-  table{width:100%;border-collapse:collapse;margin:10px 0 4px;font-size:14px}
-  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid #33475f}
+  table{width:100%;border-collapse:collapse;margin:8px 0 4px;font-size:14px}
+  th,td{text-align:left;padding:8px;border-bottom:1px solid #33475f;vertical-align:middle}
   th{color:#9fb3c7;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
-  tr.hl td{background:#2a4a2f;color:#d8f5df;font-weight:700}
-  .btns{display:flex;flex-direction:column;gap:10px;margin-top:18px}
-  button{font-size:15px;font-weight:700;padding:14px 16px;border:0;border-radius:10px;cursor:pointer;color:#fff}
+  tr.hl td{background:#2a4a2f}
+  td.n{font-weight:700}
+  .rowbtns{display:flex;gap:6px;flex-wrap:wrap}
+  .allbtn{width:100%;margin-top:8px}
+  button{font-size:14px;font-weight:700;padding:11px 12px;border:0;border-radius:9px;cursor:pointer;color:#fff}
+  .big{padding:14px 16px;font-size:15px;width:100%}
   .primary{background:#2e7d43}.primary:active{background:#256035}
-  .secondary{background:#3a5a7a}.secondary:active{background:#2f4a63}
+  .data{background:#3a5a7a}.data:active{background:#2f4a63}
+  .photos{background:#7a5a2a}.photos:active{background:#634919}
   button:disabled{opacity:.45}
-  .note{font-size:12px;color:#8ea3b8;margin-top:14px}
-  code{background:#16232f;padding:1px 5px;border-radius:4px;font-size:12px}
-  .big{font-size:15px;color:#eef2f6}
+  .note{font-size:12px;color:#8ea3b8;margin-top:16px}
+  b.g{color:#8fe0a3}
 </style>
 </head>
 <body>
 <div class="card">
   <h1>🛟 Punch List — Data Rescue Export</h1>
-  <p class="sub">Reads this browser's local punch-list database and lets you download it as a file to send to Claude. Nothing is deleted or changed.</p>
+  <p class="sub">Reads this browser's local punch-list database and downloads it as files to send to Claude. Nothing is deleted or changed. Photos are exported floor‑by‑floor so nothing overloads the phone.</p>
   <div id="status">Reading local database…</div>
+
+  <button id="btnAll" class="primary big allbtn" disabled>⬇︎ Download ALL data (no photos — small, safe)</button>
+
   <div id="summary"></div>
-  <div class="btns">
-    <button id="btnData" class="primary" disabled>⬇︎ Download data only (small — text, trades, dots)</button>
-    <button id="btnFull" class="secondary" disabled>⬇︎ Download EVERYTHING incl. photos (large)</button>
-  </div>
+
   <div class="note">
-    Open this page in the <b>same browser you did the punch list in</b>. If a count looks right below, tap a download button — the file lands in your <b>Downloads</b> folder, then upload it to Claude.
-    <br><br>⚠️ Do <b>not</b> clear this site's data or remove the app icon — that would erase the punch list.
+    <b class="g">Step 1:</b> Tap <b>Download ALL data</b> above and send me that file — it has every item's text, trade, room and dot for all floors.<br>
+    <b class="g">Step 2 (photos):</b> in the table, tap a floor's <b>Photos</b> button to pull that floor's images. Big floors download in a few numbered parts — let each finish, then send them all.<br><br>
+    Open this in the <b>same browser you did the punch list in</b>. ⚠️ Do <b>not</b> clear this site's data or remove the app icon — that would erase the punch list.
   </div>
 </div>
 
@@ -46,124 +50,112 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const KNOWN = ['casablanca_v3','casablanca_v2','casablanca','punchwalk','punch-walk'];
-let DUMP = null;          // full dump incl. base64 photos
-let DUMP_LIGHT = null;    // same but photos stripped to metadata
+const CHUNK = 40;                 // photos per file — keeps each download small enough to never crash
+let ISSUES=[], PHOTOS=[], SETTINGS=[], LS={}, META={};
 
 function blobToB64(b){return new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.onerror=()=>r(null);fr.readAsDataURL(b);});}
-
-// deep-clone a record, turning any Blob/File into {__blob:true,type,size,dataUrl}
-async function encode(val){
-  if(val instanceof Blob){
-    return {__blob:true, type:val.type||'', size:val.size, dataUrl:await blobToB64(val)};
-  }
-  if(Array.isArray(val)){const out=[];for(const v of val)out.push(await encode(v));return out;}
-  if(val && typeof val==='object'){
-    const out={};for(const k of Object.keys(val))out[k]=await encode(val[k]);return out;
-  }
-  return val;
-}
-
-function openDB(name){
-  return new Promise((res)=>{
-    let created=false;
-    const r=indexedDB.open(name);
-    r.onupgradeneeded=()=>{created=true;};   // db didn't exist — we just made an empty one
-    r.onsuccess=()=>{const db=r.result; if(created){db.close(); try{indexedDB.deleteDatabase(name);}catch(e){} res(null);} else res(db);};
-    r.onerror=()=>res(null);
-    r.onblocked=()=>res(null);
-  });
-}
+function openDB(name){return new Promise(res=>{let created=false;const r=indexedDB.open(name);r.onupgradeneeded=()=>{created=true;};r.onsuccess=()=>{const db=r.result;if(created){db.close();try{indexedDB.deleteDatabase(name);}catch(e){}res(null);}else res(db);};r.onerror=()=>res(null);r.onblocked=()=>res(null);});}
 function getAll(store){return new Promise(res=>{try{const rq=store.getAll();rq.onsuccess=()=>res(rq.result||[]);rq.onerror=()=>res([]);}catch(e){res([]);}});}
+async function listDbNames(){let n=[];if(indexedDB.databases){try{n=(await indexedDB.databases()).map(d=>d.name).filter(Boolean);}catch(e){}}for(const k of KNOWN)if(!n.includes(k))n.push(k);return n;}
+function stamp(){const d=new Date();const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;}
+function floorKey(v){return (v!=null?String(v):'?')||'?';}
+function fnameSafe(s){return String(s).replace(/[^a-z0-9]+/gi,'-');}
 
-async function listDbNames(){
-  let names=[];
-  if(indexedDB.databases){try{names=(await indexedDB.databases()).map(d=>d.name).filter(Boolean);}catch(e){}}
-  for(const k of KNOWN) if(!names.includes(k)) names.push(k);
-  return names;
+function download(obj,fname){
+  const blob=new Blob([JSON.stringify(obj)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=fname;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},3000);
+}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+// issueId -> floor
+function issueFloorMap(){const m={};for(const it of ISSUES)m[it.id]=floorKey(it.floor);return m;}
+
+function downloadFloorData(fk){
+  const issues=ISSUES.filter(it=>floorKey(it.floor)===fk);
+  const ids=new Set(issues.map(i=>i.id));
+  const photoMeta=PHOTOS.filter(p=>ids.has(p.issueId)).map(p=>({id:p.id,issueId:p.issueId,filename:p.filename||''}));
+  download({exportedAt:new Date().toISOString(),origin:location.origin,floor:fk,issues,photoMeta,settings:SETTINGS},`punchlist-floor-${fnameSafe(fk)}-data-${stamp()}.json`);
 }
 
-function floorTable(issues){
-  const by={};
-  for(const it of issues){const f=(it && (it.floor!=null?String(it.floor):'?'))||'?';by[f]=(by[f]||0)+1;}
-  const keys=Object.keys(by).sort();
-  if(!keys.length) return '<p class="big">No punch items found in this browser. Make sure you opened this in the same browser/app you used in the field.</p>';
+async function downloadFloorPhotos(fk,btn){
+  const map=issueFloorMap();
+  const recs=PHOTOS.filter(p=>map[p.issueId]===fk);
+  if(!recs.length){alert('No photos found for '+fk+' Floor.');return;}
+  const parts=Math.ceil(recs.length/CHUNK);
+  const old=btn.textContent;btn.disabled=true;
+  try{
+    for(let part=0;part<parts;part++){
+      btn.textContent=`Part ${part+1}/${parts}…`;
+      const slice=recs.slice(part*CHUNK,(part+1)*CHUNK);
+      const photos=[];
+      for(const p of slice){
+        const b=p.watermarkedBlob||p.blob||p.data;
+        let dataUrl=null;
+        if(b instanceof Blob)dataUrl=await blobToB64(b);
+        else if(typeof b==='string')dataUrl=b;
+        photos.push({id:p.id,issueId:p.issueId,filename:p.filename||('photo-'+p.id+'.jpg'),dataUrl});
+      }
+      download({exportedAt:new Date().toISOString(),origin:location.origin,floor:fk,part:part+1,of:parts,photos},
+        `punchlist-floor-${fnameSafe(fk)}-photos-p${part+1}of${parts}-${stamp()}.json`);
+      await sleep(1200);   // let each save settle & free memory before the next
+    }
+    btn.textContent='✓ Done';await sleep(1500);
+  }catch(e){alert('Photo export error: '+(e&&e.message||e));}
+  btn.textContent=old;btn.disabled=false;
+}
+
+function downloadAllData(){
+  const photoMeta=PHOTOS.map(p=>({id:p.id,issueId:p.issueId,filename:p.filename||''}));
+  download({exportedAt:new Date().toISOString(),origin:location.origin,href:location.href,userAgent:navigator.userAgent,
+    meta:META,localStorage:LS,settings:SETTINGS,issues:ISSUES,photoMeta},`punchlist-ALLDATA-${stamp()}.json`);
+}
+
+function buildTable(){
+  const map=issueFloorMap();
+  const floors={};
+  for(const it of ISSUES){const f=floorKey(it.floor);(floors[f]=floors[f]||{items:0,photos:0}).items++;}
+  for(const p of PHOTOS){const f=map[p.issueId]||'?';(floors[f]=floors[f]||{items:0,photos:0}).photos++;}
+  const keys=Object.keys(floors).sort();
+  if(!keys.length)return '<p style="font-size:15px">No punch items found in this browser. Open this page in the same browser/app you used in the field.</p>';
   let rows='';
-  for(const k of keys){const hl=/^4(th|$)/.test(k)?' class="hl"':'';rows+=`<tr${hl}><td>${k} Floor</td><td>${by[k]}</td></tr>`;}
-  return `<table><tr><th>Floor</th><th>Items</th></tr>${rows}</table>`;
+  for(const k of keys){
+    const hl=/^4(th|$)/.test(k)?' class="hl"':'';
+    rows+=`<tr${hl}><td>${k} Floor</td><td class="n">${floors[k].items}</td><td class="n">${floors[k].photos}</td>`+
+      `<td><div class="rowbtns"><button class="data" onclick="downloadFloorData('${k}')">Data</button>`+
+      `<button class="photos" onclick="downloadFloorPhotos('${k}',this)">Photos</button></div></td></tr>`;
+  }
+  return `<table><tr><th>Floor</th><th>Items</th><th>Photos</th><th>Download</th></tr>${rows}</table>`;
 }
+
+window.downloadFloorData=downloadFloorData;
+window.downloadFloorPhotos=downloadFloorPhotos;
 
 (async function(){
   try{
     const names=await listDbNames();
-    const dump={exportedAt:new Date().toISOString(),origin:location.origin,href:location.href,userAgent:navigator.userAgent,databases:{},localStorage:{}};
-    try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);dump.localStorage[k]=localStorage.getItem(k);}}catch(e){}
-
-    let totalIssues=[], totalPhotos=0;
+    META={exportedAt:new Date().toISOString(),origin:location.origin,userAgent:navigator.userAgent,databases:[]};
+    try{for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);LS[key]=localStorage.getItem(key);}}catch(e){}
     for(const name of names){
-      const db=await openDB(name);
-      if(!db) continue;
-      const stores=Array.from(db.objectStoreNames);
-      if(!stores.length){db.close();continue;}
-      const dbOut={};
+      const db=await openDB(name);if(!db)continue;
+      const stores=Array.from(db.objectStoreNames);if(!stores.length){db.close();continue;}
+      META.databases.push({name,stores});
       const tx=db.transaction(stores,'readonly');
       for(const s of stores){
         const raw=await getAll(tx.objectStore(s));
-        dbOut[s]=raw;
-        if(s==='photos') totalPhotos+=raw.length;
-        if(s==='issues') totalIssues=totalIssues.concat(raw);
+        if(s==='issues')ISSUES=ISSUES.concat(raw);
+        else if(s==='photos')PHOTOS=PHOTOS.concat(raw);
+        else if(s==='settings')SETTINGS=SETTINGS.concat(raw);
       }
-      dump.databases[name]=dbOut;
       db.close();
     }
-
-    // light version: strip photo blobs down to metadata (keeps issues fully intact)
-    const light=JSON.parse(JSON.stringify(dump, (k,v)=>{
-      if(v instanceof Blob) return '[blob '+(v.size||0)+'B]';
-      return v;
-    }));
-    for(const dbn of Object.keys(light.databases)){
-      const ph=light.databases[dbn].photos;
-      if(Array.isArray(ph)) light.databases[dbn].photos = ph.map(p=>{const q=Object.assign({},p);delete q.blob;delete q.watermarkedBlob;delete q.dataUrl;delete q.data;return q;});
-    }
-    DUMP_LIGHT=light;
-
-    // build encoded full dump (blobs -> base64) lazily on demand to keep load fast:
-    window.__buildFull=async function(){
-      const full={exportedAt:dump.exportedAt,origin:dump.origin,href:dump.href,userAgent:dump.userAgent,localStorage:dump.localStorage,databases:{}};
-      for(const dbn of Object.keys(dump.databases)){
-        full.databases[dbn]={};
-        for(const s of Object.keys(dump.databases[dbn])){
-          full.databases[dbn][s]=await encode(dump.databases[dbn][s]);
-        }
-      }
-      return full;
-    };
-
-    $('status').textContent=`Found ${totalIssues.length} punch item(s) and ${totalPhotos} photo(s) across ${Object.keys(dump.databases).length} database(s).`;
-    $('summary').innerHTML=floorTable(totalIssues);
-    $('btnData').disabled=false;
-    $('btnFull').disabled=totalPhotos===0 && totalIssues.length===0;
-  }catch(e){
-    $('status').textContent='Error reading database: '+(e&&e.message||e);
-  }
+    $('status').textContent=`Found ${ISSUES.length} punch item(s) and ${PHOTOS.length} photo(s). Everything is intact — download below.`;
+    $('summary').innerHTML=buildTable();
+    $('btnAll').disabled=false;
+    $('btnAll').onclick=downloadAllData;
+  }catch(e){$('status').textContent='Error reading database: '+(e&&e.message||e);}
 })();
-
-function download(obj,fname,setBusy){
-  const blob=new Blob([JSON.stringify(obj)],{type:'application/json'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download=fname;document.body.appendChild(a);a.click();
-  setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},2000);
-  if(setBusy)setBusy();
-}
-function stamp(){const d=new Date();const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;}
-
-$('btnData').onclick=()=>{ if(!DUMP_LIGHT)return; download(DUMP_LIGHT,`punchlist-data-${stamp()}.json`); };
-$('btnFull').onclick=async()=>{
-  const b=$('btnFull'); const old=b.textContent; b.disabled=true; b.textContent='Packaging photos… (may take a moment)';
-  try{ const full=await window.__buildFull(); download(full,`punchlist-full-${stamp()}.json`); }
-  catch(e){ alert('Failed to package photos: '+(e&&e.message||e)); }
-  b.textContent=old; b.disabled=false;
-};
 </script>
 </body>
 </html>
