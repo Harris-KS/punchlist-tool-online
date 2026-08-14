@@ -2336,8 +2336,19 @@ async function restoreFromAcc(){
   }catch(e){console.error('Restore error',e);_bstat('✗ Restore failed: '+e.message,'#c0392b');uiAlert('Restore failed:\n\n'+e.message);}
 }
 async function startSync(){
-  const pending=(await DB.getAllIssues()).filter(i=>!i.synced&&!i.resolved);
-  if(!pending.length){alert('No pending items.');return;}
+  const all=(await DB.getAllIssues()).filter(i=>!i.synced&&!i.resolved);
+  if(!all.length){uiAlert('No pending items to sync.');return;}
+  // Scope: push one floor at a time (or everything). Only ask when >1 floor is pending.
+  let pending=all, scopeFloor=null;
+  const byFloor={};all.forEach(i=>{const f=i.floor||'?';byFloor[f]=(byFloor[f]||0)+1;});
+  const floors=Object.keys(byFloor).sort();
+  if(floors.length>1){
+    const opts=floors.map(f=>({label:`${f} Floor only (${byFloor[f]} item${byFloor[f]!==1?'s':''})`,value:f}));
+    opts.push({label:`All floors (${all.length} items)`,value:'__all__'});
+    const choice=await uiPick('Push which items to Forma?',opts);
+    if(!choice)return;                                   // cancelled
+    if(choice!=='__all__'){scopeFloor=choice;pending=all.filter(i=>(i.floor||'?')===choice);}
+  }
   const btn=document.getElementById('sync-btn');btn.disabled=true;btn.textContent='Syncing…';
   const log=document.getElementById('sync-log');log.innerHTML='<div class="log-inf">Starting sync for '+pending.length+' item(s)…</div>';
   let token;
@@ -2373,7 +2384,7 @@ async function startSync(){
     bump();
   });
   // Push any pending resolve/reopen changes to already-synced Forma issues
-  const statusChanges=(await DB.getAllIssues()).filter(i=>i.synced&&i.formaId&&i.pendingStatus);
+  const statusChanges=(await DB.getAllIssues()).filter(i=>i.synced&&i.formaId&&i.pendingStatus&&(!scopeFloor||(i.floor||'?')===scopeFloor));
   for(const i of statusChanges){
     try{await pushIssueStatus(i,token);i.pendingStatus=null;await DB.updateIssue(i);logLine(log,'ok','  ✓ #'+(i.formaNum||'?')+' → '+(i.resolved?'closed':'open')+' in Forma');}
     catch(e){logLine(log,'err','  ✗ Status update #'+(i.formaNum||'?')+': '+e.message);}
