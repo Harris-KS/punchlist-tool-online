@@ -1,5 +1,5 @@
 'use strict';
-const CACHE = 'punch-walk-v44';
+const CACHE = 'punch-walk-v45';
 // App shell — must all cache or the install is pointless.
 const SHELL_ASSETS = [
   './punch-tool.html',
@@ -52,22 +52,31 @@ self.addEventListener('fetch', e => {
   // Only handle GET
   if (e.request.method !== 'GET') return;
 
+  // NAVIGATIONS (the HTML page): network-first so a reload ALWAYS gets the latest build when
+  // online. Falls back to the cached shell only when offline. This prevents the app from being
+  // stuck on an old cached version after a deploy.
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request).then(res => {
+        const clone = res.clone();
+        caches.open(CACHE).then(c => c.put('./punch-tool.html', clone));
+        return res;
+      }).catch(() => caches.match(e.request).then(r => r || caches.match('./punch-tool.html')))
+    );
+    return;
+  }
+
+  // Everything else (assets): cache-first for speed + offline; cache images on first fetch.
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
       return fetch(e.request).then(res => {
-        // Cache floor plan images on first access so they work offline
         if (res.ok && /\.(jpg|jpeg|png|gif|webp)$/i.test(url.pathname)) {
           const clone = res.clone();
           caches.open(CACHE).then(c => c.put(e.request, clone));
         }
         return res;
-      }).catch(() => {
-        // Offline fallback: return cached app shell for navigation requests
-        if (e.request.mode === 'navigate') {
-          return caches.match('./punch-tool.html');
-        }
-      });
+      }).catch(() => {});
     })
   );
 });
