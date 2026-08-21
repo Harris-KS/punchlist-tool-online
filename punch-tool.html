@@ -372,6 +372,14 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f0ed;color:#1a1a1a;mi
         <div class="setup-note" style="margin-top:6px;">You are redirected to Autodesk's login page. This app never handles your password. Sessions last 30 days.</div>
       </div>
       <div class="modal-section">
+        <h3>Project Mode</h3>
+        <div class="setup-note" style="margin-bottom:8px;">Casablanca uses the room-button layout. Sheet-mode projects show one drawing sheet — tap anywhere on it to add an issue. Each mode keeps its own project, team, and trade settings.</div>
+        <select id="cfg-project-mode" class="setup-select" style="width:100%;" onchange="switchProjectMode(this.value)">
+          <option value="casablanca">Casablanca Room Remodel (rooms)</option>
+          <option value="finneys">Finney's DTS (sheet A-2.1.1)</option>
+        </select>
+      </div>
+      <div class="modal-section">
         <h3>ACC Project</h3>
         <div id="active-project-display" style="padding:8px 10px;border-radius:4px;font-size:12px;margin-bottom:8px;background:#f0fff4;border:1.5px solid #80c8a0;color:#1a5a2a;display:none;">
           <strong id="active-project-name"></strong><br>
@@ -496,7 +504,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f0ed;color:#1a1a1a;mi
 <script>
 'use strict';
 // App version — shown in the header/install banner. Keep in sync with sw.js CACHE.
-const APP_VERSION='v46';
+const APP_VERSION='v47';
 try{document.querySelectorAll('.app-ver').forEach(e=>{e.textContent=APP_VERSION;});}catch(e){}
 // ─── PWA ICON + MANIFEST (generated inline — no separate PNG files needed) ────
 const _H_SVG_PATH='M72.03,237.15c-7.68-3.59-15.47-6.97-23.38-10.13-10.59-4.23-21.32-8.07-31.48-13.28-.74-.34-1.42-.75-2.13-1.14-3.33-1.88-6.44-3.9-9.26-6.53-1.66-1.62-2.98-3.25-4.11-5.31-2.89-5.7-1.87-11.39,1.64-16.39,2.08-2.74,4.5-4.74,7.4-6.62,6.96-4.21,14.55-6.64,22.44-8.67,13.87-3.22,28-5.2,42.22-6.4,2.26-47.08,4.76-94.15,7.26-141.22C83.07,15.81,84.8.06,92.46,0h.14s.14.04.14.04c7.28,2.41,7.38,17.91,7.17,24.06-2.63,45.84-5.27,91.68-8.13,137.5,2.55-.12,5.1-.23,7.65-.31,27.58-.95,55.28.22,82.81,3.19,1.69.18,3.37.44,5.05.67,1.11-31.31,2.05-62.63,3.27-93.94.33-8.46.75-16.91,1.37-25.35.36-4.94.78-9.88,1.4-14.79.52-4.1,2.96-13.99,8.54-13.23,6.29.85,7.37,12.94,7.22,17.76-.15,4.96-.4,9.91-.65,14.87-.26,5-.54,10-.82,15-.15,2.64-.34,5.28-.45,7.92-1.23,31.33-2.28,62.66-3.49,93.99,1.74.28,3.48.56,5.22.86,6.25,1.07,12.5,2.23,18.6,4.07,2.7.81,9.7,2.87,9.05,6.63l-.05.3-.16.25c-.68,1.04-2.65.66-3.73.57-2.01-.16-4.02-.37-6.03-.58-6.02-.63-12.04-1.32-18.05-2.01-1.74-.2-3.48-.4-5.22-.61-1.41,35.21-3.09,70.41-5.55,105.56-.76,8.52-1.53,17.03-2.12,25.57,2.9,3.75,5.58,7.68,8.01,11.79,3.78,6.93,6.16,13.15,6.71,21.05.19,7.87-1.59,13.5-6.19,19.77-1.36,1.74-2.81,3.29-4.64,4.57-1.02.67-2.05,1.18-3.25,1.54-1.52.42-2.87.5-4.48.26-1.71-.31-3.06-.89-4.53-1.89-1.16-.84-2.07-1.77-2.94-2.93-1.27-1.8-2.06-3.6-2.73-5.71-2.48-8.89-2.51-18.37-2.38-27.47.08-5.88.34-11.76.7-17.63-6.71-7.73-14.4-14.56-22.22-21.11-22.37-17.79-46.18-33.15-71.34-46.08-.86,12.92-1.71,25.81-2.85,38.74-.99,11.14-2.07,22.46-3.8,33.5-.38,2.46-2.12,15.81-5.41,16.15l-.22.02-.21-.09c-3.01-1.29-3.31-14.57-3.43-17.27-.49-11.23-.32-22.63-.07-33.85.33-14.8,1.03-29.48,1.67-44.23h0ZM72.67,222.24c.66-15.55,1.37-31.1,2.1-46.65-12.53,1.35-24.96,3.35-37.14,6.39-6.52,1.76-13.05,3.81-18.77,7.39-1.56,1.04-3.01,2.15-4.11,3.65-.51.75-.99,1.73-.63,2.66.75,1.9,4.96,3.9,6.71,4.87.58.32,1.16.64,1.76.93,9.73,4.86,20,8.42,30.09,12.38,6.76,2.65,13.43,5.44,20,8.39h0ZM90.98,174.17c-1.16,18.33-2.36,36.66-3.62,54.98,27.96,13.77,54.26,30.4,79.12,50.01,5.07,4.21,10.07,8.53,14.83,13.09.33-4.16.65-8.31.94-12.47,2.42-34.86,3.39-69.84,4.66-104.78-1.55-.21-3.09-.46-4.64-.59-27.03-1.7-54.14-2.3-81.12-.87-3.39.18-6.78.39-10.17.62h0ZM194.55,333.28c-.1,6.32-.12,13.04.36,19.2.01.19.08.7.21.99.21-.26.42-.81.49-1.01,1.34-4,1.38-14.1-1.05-19.18Z';
@@ -555,6 +563,22 @@ const MiniZip=(()=>{
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 const FLOOR_KEYS=['1st','2nd','3rd','4th','5th','6th','7th','8th','9th'];
+// ─── PROJECT MODES ────────────────────────────────────────────────────────────
+// 'casablanca' = original rooms-per-floor behavior, byte-for-byte unchanged.
+// Sheet modes have no room buttons: one (or more) drawing sheets; tap anywhere on the
+// sheet to drop a dot and add an issue. Trades come from the ACC project's own issue
+// subtypes (fetched via "Load Members & Companies"), not the hardcoded TRADES table.
+const PROJECT_MODES={
+  casablanca:{title:'Casablanca Punch List',fileTag:'Casablanca',sheetMode:false},
+  finneys:{title:"Finney's DTS Punch List",fileTag:'FinneysDTS',sheetMode:true,
+    accProjectId:'b.8a015667-dc39-4e8f-8898-cb0843aed337',
+    accProjectName:"Finney's At Downtown Summerlin",
+    sheets:[{key:'A-2.1.1',label:'A-2.1.1 Overall Floor Plan',src:'./floor-plans/finneys/A-2.1.1.jpg'}]},
+};
+function curMode(){return PROJECT_MODES[(ST.cfg&&ST.cfg.projectMode)||'casablanca']||PROJECT_MODES.casablanca;}
+function isSheetMode(){return !!curMode().sheetMode;}
+function modeFloors(){return isSheetMode()?curMode().sheets.map(s=>s.key):FLOOR_KEYS;}
+function sheetByKey(k){return (curMode().sheets||[]).find(s=>s.key===k)||null;}
 const FLOOR_PLAN_NAMES={'1st':'1st Floor.png','2nd':'2nd Floor.png','3rd':'3rd Floor.png','4th':'4th Floor.png','5th':'5th Floor.png','6th':'6th Floor.png','7th':'7th Floor.png','8th':'8th Floor.png','9th':'9th Floor.png'};
 
 const ROOMS={"1st":[{"num":1002,"type":"Regular"},{"num":1004,"type":"ADA"},{"num":1006,"type":"Regular"},{"num":1007,"type":"Regular"},{"num":1009,"type":"Regular"},{"num":1010,"type":"ADA Pool Suite"},{"num":1011,"type":"Regular"},{"num":1012,"type":"Regular"},{"num":1014,"type":"Corner Suite"},{"num":1015,"type":"Regular"},{"num":1017,"type":"Regular"},{"num":1019,"type":"Regular"},{"num":1021,"type":"Regular"},{"num":1022,"type":"Pool Suite"},{"num":1023,"type":"Regular"},{"num":1024,"type":"Regular"},{"num":1025,"type":"Regular"},{"num":1026,"type":"Regular"},{"num":1027,"type":"ADA"},{"num":1029,"type":"Regular"},{"num":1030,"type":"Pool Suite"},{"num":1032,"type":"Regular"},{"num":1034,"type":"Regular"},{"num":1035,"type":"Regular"},{"num":1037,"type":"Regular"},{"num":1038,"type":"Pool Suite"},{"num":1039,"type":"Regular"},{"num":1040,"type":"Regular"},{"num":1041,"type":"Regular"},{"num":1042,"type":"Regular"},{"num":1043,"type":"Regular"},{"num":1045,"type":"Regular"},{"num":1046,"type":"Corner Suite"},{"num":1047,"type":"Regular"},{"num":1049,"type":"Regular"},{"num":1050,"type":"Regular"},{"num":1051,"type":"Regular"},{"num":1053,"type":"Regular"},{"num":1054,"type":"Pool Suite"},{"num":1055,"type":"Regular"},{"num":1056,"type":"Regular"},{"num":1057,"type":"Regular"},{"num":1058,"type":"Regular"},{"num":1059,"type":"Regular"},{"num":1061,"type":"Regular"},{"num":1062,"type":"Pool Suite"},{"num":1063,"type":"Regular"},{"num":1064,"type":"Regular"}],"2nd":[{"num":2002,"type":"Regular"},{"num":2003,"type":"Regular"},{"num":2004,"type":"Regular"},{"num":2005,"type":"Regular"},{"num":2006,"type":"Regular"},{"num":2007,"type":"Regular"},{"num":2008,"type":"ADA"},{"num":2009,"type":"Regular"},{"num":2010,"type":"Regular"},{"num":2011,"type":"Regular"},{"num":2012,"type":"Regular"},{"num":2014,"type":"Corner Suite"},{"num":2015,"type":"Regular"},{"num":2017,"type":"Regular"},{"num":2019,"type":"Regular"},{"num":2020,"type":"Regular"},{"num":2021,"type":"Regular"},{"num":2022,"type":"Regular"},{"num":2023,"type":"Regular"},{"num":2024,"type":"Regular"},{"num":2025,"type":"Regular"},{"num":2026,"type":"Regular"},{"num":2027,"type":"ADA"},{"num":2028,"type":"Regular"},{"num":2029,"type":"Regular"},{"num":2030,"type":"Regular"},{"num":2031,"type":"Regular"},{"num":2032,"type":"Regular"},{"num":2033,"type":"Regular"},{"num":2034,"type":"Regular"},{"num":2035,"type":"Regular"},{"num":2036,"type":"Regular"},{"num":2037,"type":"Regular"},{"num":2038,"type":"Regular"},{"num":2039,"type":"Regular"},{"num":2040,"type":"Regular"},{"num":2041,"type":"Regular"},{"num":2042,"type":"Regular"},{"num":2043,"type":"Regular"},{"num":2045,"type":"Regular"},{"num":2046,"type":"Corner Suite"},{"num":2047,"type":"Regular"},{"num":2049,"type":"Regular"},{"num":2050,"type":"Regular"},{"num":2051,"type":"Regular"},{"num":2052,"type":"Regular"},{"num":2053,"type":"Regular"},{"num":2054,"type":"Regular"},{"num":2055,"type":"Regular"},{"num":2056,"type":"Regular"},{"num":2057,"type":"Regular"},{"num":2058,"type":"Regular"},{"num":2059,"type":"Regular"},{"num":2060,"type":"Regular"},{"num":2061,"type":"Regular"},{"num":2062,"type":"Regular"},{"num":2063,"type":"Regular"},{"num":2064,"type":"Regular"}],"3rd":[{"num":3002,"type":"Regular"},{"num":3003,"type":"Regular"},{"num":3004,"type":"Regular"},{"num":3005,"type":"Regular"},{"num":3006,"type":"Regular"},{"num":3007,"type":"Regular"},{"num":3008,"type":"ADA"},{"num":3009,"type":"Regular"},{"num":3010,"type":"Regular"},{"num":3011,"type":"Regular"},{"num":3012,"type":"Regular"},{"num":3014,"type":"Corner Suite"},{"num":3015,"type":"Regular"},{"num":3017,"type":"Regular"},{"num":3019,"type":"Regular"},{"num":3020,"type":"Regular"},{"num":3021,"type":"Regular"},{"num":3022,"type":"Regular"},{"num":3023,"type":"Regular"},{"num":3024,"type":"Regular"},{"num":3025,"type":"Regular"},{"num":3026,"type":"Regular"},{"num":3027,"type":"ADA"},{"num":3028,"type":"Regular"},{"num":3029,"type":"Regular"},{"num":3030,"type":"Regular"},{"num":3031,"type":"Regular"},{"num":3032,"type":"Regular"},{"num":3033,"type":"Regular"},{"num":3034,"type":"Regular"},{"num":3035,"type":"Regular"},{"num":3036,"type":"Regular"},{"num":3037,"type":"Regular"},{"num":3038,"type":"Regular"},{"num":3039,"type":"Regular"},{"num":3040,"type":"Regular"},{"num":3041,"type":"Regular"},{"num":3042,"type":"Regular"},{"num":3043,"type":"Regular"},{"num":3045,"type":"Regular"},{"num":3046,"type":"Corner Suite"},{"num":3047,"type":"Regular"},{"num":3049,"type":"Regular"},{"num":3050,"type":"Regular"},{"num":3051,"type":"Regular"},{"num":3052,"type":"Regular"},{"num":3053,"type":"Regular"},{"num":3054,"type":"Regular"},{"num":3055,"type":"Regular"},{"num":3056,"type":"Regular"},{"num":3057,"type":"Regular"},{"num":3058,"type":"Regular"},{"num":3059,"type":"Regular"},{"num":3060,"type":"Regular"},{"num":3061,"type":"Regular"},{"num":3062,"type":"Regular"},{"num":3063,"type":"Regular"},{"num":3064,"type":"Regular"}],"4th":[{"num":4002,"type":"Regular"},{"num":4003,"type":"Regular"},{"num":4004,"type":"Regular"},{"num":4005,"type":"Regular"},{"num":4006,"type":"Regular"},{"num":4007,"type":"Regular"},{"num":4008,"type":"ADA"},{"num":4009,"type":"Regular"},{"num":4010,"type":"Regular"},{"num":4011,"type":"Regular"},{"num":4012,"type":"Regular"},{"num":4014,"type":"Corner Suite"},{"num":4015,"type":"Regular"},{"num":4017,"type":"Regular"},{"num":4019,"type":"Regular"},{"num":4020,"type":"Regular"},{"num":4021,"type":"Regular"},{"num":4022,"type":"Regular"},{"num":4023,"type":"Regular"},{"num":4024,"type":"Regular"},{"num":4025,"type":"Regular"},{"num":4026,"type":"Regular"},{"num":4027,"type":"Regular"},{"num":4028,"type":"Regular"},{"num":4029,"type":"Regular"},{"num":4030,"type":"Regular"},{"num":4031,"type":"Regular"},{"num":4032,"type":"Regular"},{"num":4033,"type":"Regular"},{"num":4034,"type":"Regular"},{"num":4035,"type":"Regular"},{"num":4036,"type":"Regular"},{"num":4037,"type":"Regular"},{"num":4038,"type":"Regular"},{"num":4039,"type":"Regular"},{"num":4040,"type":"Regular"},{"num":4041,"type":"Regular"},{"num":4042,"type":"Regular"},{"num":4046,"type":"Corner Suite"},{"num":4049,"type":"Regular"},{"num":4050,"type":"Regular"},{"num":4051,"type":"Regular"},{"num":4052,"type":"Regular"},{"num":4053,"type":"Regular"},{"num":4054,"type":"Regular"},{"num":4055,"type":"Regular"},{"num":4056,"type":"Regular"},{"num":4057,"type":"Regular"},{"num":4058,"type":"Regular"},{"num":4059,"type":"Regular"},{"num":4060,"type":"Regular"},{"num":4061,"type":"Regular"},{"num":4062,"type":"Regular"},{"num":4063,"type":"Regular"},{"num":4064,"type":"Regular"}],"5th":[{"num":5002,"type":"Regular"},{"num":5003,"type":"Regular"},{"num":5004,"type":"Regular"},{"num":5005,"type":"Regular"},{"num":5006,"type":"Regular"},{"num":5007,"type":"Regular"},{"num":5008,"type":"ADA"},{"num":5009,"type":"Regular"},{"num":5010,"type":"Regular"},{"num":5011,"type":"Regular"},{"num":5012,"type":"Regular"},{"num":5014,"type":"Corner Suite"},{"num":5015,"type":"Regular"},{"num":5017,"type":"Regular"},{"num":5019,"type":"Regular"},{"num":5020,"type":"Regular"},{"num":5021,"type":"Regular"},{"num":5022,"type":"Regular"},{"num":5023,"type":"Regular"},{"num":5024,"type":"Regular"},{"num":5025,"type":"Regular"},{"num":5026,"type":"Regular"},{"num":5027,"type":"Regular"},{"num":5028,"type":"Regular"},{"num":5029,"type":"Regular"},{"num":5030,"type":"Regular"},{"num":5031,"type":"Regular"},{"num":5032,"type":"Regular"},{"num":5033,"type":"Regular"},{"num":5034,"type":"Regular"},{"num":5035,"type":"Regular"},{"num":5036,"type":"Regular"},{"num":5037,"type":"Regular"},{"num":5038,"type":"Regular"},{"num":5039,"type":"Regular"},{"num":5040,"type":"Regular"},{"num":5042,"type":"Regular"},{"num":5046,"type":"Corner Suite"},{"num":5049,"type":"Regular"},{"num":5050,"type":"Regular"},{"num":5051,"type":"Regular"},{"num":5052,"type":"Regular"},{"num":5053,"type":"Regular"},{"num":5054,"type":"Regular"},{"num":5055,"type":"Regular"},{"num":5056,"type":"Regular"},{"num":5057,"type":"Regular"},{"num":5058,"type":"Regular"},{"num":5059,"type":"Regular"},{"num":5060,"type":"Regular"},{"num":5061,"type":"Regular"},{"num":5062,"type":"Regular"},{"num":5063,"type":"Regular"},{"num":5064,"type":"Regular"}],"6th":[{"num":6002,"type":"Regular"},{"num":6003,"type":"Regular"},{"num":6004,"type":"Regular"},{"num":6005,"type":"Regular"},{"num":6006,"type":"Regular"},{"num":6007,"type":"Regular"},{"num":6008,"type":"ADA"},{"num":6009,"type":"Regular"},{"num":6010,"type":"Regular"},{"num":6011,"type":"Regular"},{"num":6012,"type":"Regular"},{"num":6014,"type":"Corner Suite"},{"num":6015,"type":"Regular"},{"num":6017,"type":"Regular"},{"num":6019,"type":"Regular"},{"num":6020,"type":"Regular"},{"num":6021,"type":"Regular"},{"num":6022,"type":"Regular"},{"num":6023,"type":"Regular"},{"num":6024,"type":"Regular"},{"num":6025,"type":"Regular"},{"num":6026,"type":"Regular"},{"num":6027,"type":"Regular"},{"num":6028,"type":"Regular"},{"num":6029,"type":"Regular"},{"num":6030,"type":"Regular"},{"num":6031,"type":"Regular"},{"num":6032,"type":"Regular"},{"num":6033,"type":"Regular"},{"num":6034,"type":"Regular"},{"num":6035,"type":"Regular"},{"num":6036,"type":"Regular"},{"num":6037,"type":"Regular"},{"num":6038,"type":"Regular"},{"num":6039,"type":"Regular"},{"num":6040,"type":"Regular"},{"num":6042,"type":"Regular"},{"num":6046,"type":"Corner Suite"},{"num":6049,"type":"Regular"},{"num":6050,"type":"Regular"},{"num":6051,"type":"Regular"},{"num":6052,"type":"Regular"},{"num":6053,"type":"Regular"},{"num":6054,"type":"Regular"},{"num":6055,"type":"Regular"},{"num":6056,"type":"Regular"},{"num":6057,"type":"Regular"},{"num":6058,"type":"Regular"},{"num":6059,"type":"Regular"},{"num":6060,"type":"Regular"},{"num":6061,"type":"Regular"},{"num":6062,"type":"Regular"},{"num":6063,"type":"Regular"},{"num":6064,"type":"Regular"}],"7th":[{"num":7002,"type":"Regular"},{"num":7003,"type":"Regular"},{"num":7004,"type":"Regular"},{"num":7005,"type":"Regular"},{"num":7006,"type":"Regular"},{"num":7007,"type":"Regular"},{"num":7008,"type":"ADA"},{"num":7009,"type":"Regular"},{"num":7010,"type":"Regular"},{"num":7011,"type":"Regular"},{"num":7012,"type":"Regular"},{"num":7014,"type":"Corner Suite"},{"num":7015,"type":"Regular"},{"num":7017,"type":"Regular"},{"num":7019,"type":"Regular"},{"num":7020,"type":"Regular"},{"num":7021,"type":"Regular"},{"num":7022,"type":"Regular"},{"num":7023,"type":"Regular"},{"num":7024,"type":"Regular"},{"num":7025,"type":"Regular"},{"num":7026,"type":"Regular"},{"num":7027,"type":"Regular"},{"num":7028,"type":"Regular"},{"num":7029,"type":"Regular"},{"num":7030,"type":"Regular"},{"num":7031,"type":"Regular"},{"num":7032,"type":"Regular"},{"num":7033,"type":"Regular"},{"num":7034,"type":"Regular"},{"num":7035,"type":"Regular"},{"num":7036,"type":"Regular"},{"num":7037,"type":"Regular"},{"num":7038,"type":"Regular"},{"num":7039,"type":"Regular"},{"num":7040,"type":"Regular"},{"num":7042,"type":"Regular"},{"num":7046,"type":"Corner Suite"},{"num":7050,"type":"Regular"},{"num":7051,"type":"Regular"},{"num":7052,"type":"Regular"},{"num":7053,"type":"Regular"},{"num":7054,"type":"Regular"},{"num":7055,"type":"Regular"},{"num":7056,"type":"Regular"},{"num":7057,"type":"Regular"},{"num":7058,"type":"Regular"},{"num":7059,"type":"Regular"},{"num":7060,"type":"Regular"},{"num":7061,"type":"Regular"},{"num":7063,"type":"Regular"}],"8th":[{"num":8002,"type":"Regular"},{"num":8003,"type":"Regular"},{"num":8004,"type":"Regular"},{"num":8005,"type":"Regular"},{"num":8006,"type":"Regular"},{"num":8007,"type":"Regular"},{"num":8008,"type":"ADA"},{"num":8009,"type":"Regular"},{"num":8010,"type":"Regular"},{"num":8011,"type":"Regular"},{"num":8012,"type":"Regular"},{"num":8014,"type":"Corner Suite"},{"num":8015,"type":"Regular"},{"num":8020,"type":"Regular"},{"num":8022,"type":"Regular"},{"num":8023,"type":"Regular"},{"num":8024,"type":"Regular"},{"num":8025,"type":"Regular"},{"num":8026,"type":"Regular"},{"num":8027,"type":"Regular"},{"num":8028,"type":"Regular"},{"num":8029,"type":"Regular"},{"num":8030,"type":"Regular"},{"num":8031,"type":"Regular"},{"num":8032,"type":"Regular"},{"num":8033,"type":"Regular"},{"num":8034,"type":"Regular"},{"num":8035,"type":"Regular"},{"num":8036,"type":"Regular"},{"num":8037,"type":"Regular"},{"num":8038,"type":"Regular"},{"num":8039,"type":"Regular"},{"num":8040,"type":"Regular"},{"num":8042,"type":"Regular"},{"num":8046,"type":"Corner Suite"},{"num":8049,"type":"Regular"},{"num":8050,"type":"Regular"},{"num":8051,"type":"Regular"},{"num":8052,"type":"Regular"},{"num":8053,"type":"Regular"},{"num":8054,"type":"Regular"},{"num":8055,"type":"Regular"},{"num":8056,"type":"Regular"},{"num":8057,"type":"Regular"},{"num":8059,"type":"Regular"},{"num":8061,"type":"Regular"},{"num":8063,"type":"Regular"}],"9th":[{"num":9002,"type":"Regular"},{"num":9003,"type":"Regular"},{"num":9004,"type":"Regular"},{"num":9005,"type":"Regular"},{"num":9006,"type":"Regular"},{"num":9007,"type":"Regular"},{"num":9008,"type":"ADA"},{"num":9009,"type":"Regular"},{"num":9010,"type":"Regular"},{"num":9011,"type":"Regular"},{"num":9012,"type":"Regular"},{"num":9014,"type":"Corner Suite"},{"num":9015,"type":"Regular"},{"num":9020,"type":"Regular"},{"num":9022,"type":"Regular"},{"num":9024,"type":"Regular"},{"num":9026,"type":"Regular"},{"num":9027,"type":"Regular"},{"num":9028,"type":"Regular"},{"num":9029,"type":"Regular"},{"num":9030,"type":"Regular"},{"num":9031,"type":"Regular"},{"num":9032,"type":"Regular"},{"num":9033,"type":"Regular"},{"num":9034,"type":"Regular"},{"num":9035,"type":"Regular"},{"num":9036,"type":"Regular"},{"num":9037,"type":"Regular"},{"num":9038,"type":"Regular"},{"num":9039,"type":"Regular"},{"num":9040,"type":"Regular"},{"num":9042,"type":"Regular"},{"num":9046,"type":"Corner Suite"},{"num":9049,"type":"Regular"},{"num":9050,"type":"Regular"},{"num":9051,"type":"Regular"},{"num":9052,"type":"Regular"},{"num":9053,"type":"Regular"},{"num":9054,"type":"Regular"},{"num":9055,"type":"Regular"},{"num":9056,"type":"Regular"},{"num":9057,"type":"Regular"},{"num":9059,"type":"Regular"},{"num":9061,"type":"Regular"},{"num":9063,"type":"Regular"}]};
@@ -635,6 +659,9 @@ const ROOM_PLAN_PATHS={
 // Floor plan filenames — upload to floor-plans/complete/ in GitHub
 
 const DEFAULT_CFG={
+  projectMode:'casablanca',
+  profiles:{},          // per-mode saved project config, swapped by switchProjectMode()
+  accIssueTypes:[],     // fetched ACC issue types+subtypes (sheet-mode trade list)
   projectId:'',
   projectName:'',
   accountId:'',
@@ -741,7 +768,7 @@ function addBusinessDays(date,days){
   while(a<days){d.setDate(d.getDate()+1);const dw=d.getDay();if(dw!==0&&dw!==6)a++;}
   return d.toISOString().slice(0,10);
 }
-function floorLabel(fk){return fk+' Floor';}
+function floorLabel(fk){const s=isSheetMode()?sheetByKey(fk):null;return s?s.label:fk+' Floor';}
 function blobToBase64(blob){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(blob);});}
 function blobToArrayBuffer(blob){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsArrayBuffer(blob);});}
 function getPhotoUrl(photo){
@@ -762,8 +789,20 @@ function getRoomPlanSrc(roomType,bedType){
   return ROOM_PLAN_PATHS.king;
 }
 function getFloorPlanSrc(floorKey){
+  const s=isSheetMode()?sheetByKey(floorKey):null;
+  if(s)return s.src;
   const base=ST.cfg.fpBase||'./floor-plans/complete/';
   return base+FLOOR_PLAN_NAMES[floorKey];
+}
+// Active trade list. Casablanca: the hardcoded TRADES table. Sheet modes: the ACC
+// project's own issue subtypes (prefer the "Punch List" type's subtypes), fetched into
+// cfg.accIssueTypes by "Load Members & Companies". Ids are 'acc_<subtypeId>'.
+function liveTrades(){
+  if(!isSheetMode())return TRADES;
+  const types=ST.cfg.accIssueTypes||[];
+  const punch=types.find(t=>/punch/i.test(t.title||''));
+  const subs=(punch&&punch.subtypes&&punch.subtypes.length)?punch.subtypes:types.flatMap(t=>t.subtypes||[]);
+  return subs.map(s=>({id:'acc_'+s.id,label:s.title,subtypeId:s.id}));
 }
 function tradeLabel(tradeId){
   if(!tradeId)return '';
@@ -772,12 +811,16 @@ function tradeLabel(tradeId){
     const c=(ST.cfg.customTrades||[])[idx];
     return c?c.label:'Custom';
   }
-  const t=TRADES.find(x=>x.id===tradeId);
+  const t=liveTrades().find(x=>x.id===tradeId);
   return (ST.cfg.tradeLabels&&ST.cfg.tradeLabels[tradeId])||( t?t.label:'');
 }
-function getTrade(tradeId){return TRADES.find(x=>x.id===tradeId)||null;}
+function getTrade(tradeId){return liveTrades().find(x=>x.id===tradeId)||null;}
 // Real ACC issue SUBTYPE id for a stored item.tradeId. '' = no known subtype -> blocked from sync.
 function resolveAccSubtype(tradeId){
+  if(isSheetMode()){
+    // Sheet-mode trade ids carry the ACC subtype id directly ('acc_<subtypeId>').
+    return (tradeId&&tradeId.startsWith&&tradeId.startsWith('acc_'))?tradeId.slice(4):'';
+  }
   if(!tradeId||isGeneralTrade(tradeId)||(tradeId.startsWith&&tradeId.startsWith('custom_'))){
     const gen=TRADES.find(t=>t.id===GENERAL_TRADE_ID);return gen?(gen.subtypeId||''):'';
   }
@@ -791,7 +834,13 @@ function buildIssueTitle(iss){
 }
 // Project superintendent (live ACC member holding the Superintendent role) — used for
 // General-item routing and as a watcher. Returns the member object or null.
-function superMember(){return liveMembers().find(m=>(m.roles||[]).some(r=>String(r).toLowerCase()==='superintendent'))||null;}
+function superMember(){
+  const m=liveMembers().find(m=>(m.roles||[]).some(r=>String(r).toLowerCase()==='superintendent'));
+  if(m)return m;
+  // Fallback (some projects have no member with the Superintendent role): the logged-in user.
+  if(ST.userEmail)return liveMembers().find(x=>x.email&&x.email.toLowerCase()===ST.userEmail.toLowerCase())||null;
+  return null;
+}
 
 // ─── AUTH CONSTANTS ───────────────────────────────────────────────────────────
 const APS_CLIENT_ID='uPZWC7FwvOtXrPmcgEmQnfKqC1NcbS4mDSIJ6GU4VPRVzhbn';
@@ -853,6 +902,7 @@ async function _saveAuth(tokens,existing){
   return auth;
 }
 function _updateUserChip(auth){
+  if(auth&&auth.userEmail)ST.userEmail=auth.userEmail;
   const chip=document.getElementById('user-chip');
   const nm=document.getElementById('user-name');
   if(auth&&(auth.userName||auth.userEmail)){
@@ -971,6 +1021,7 @@ async function persistSettings(){
   await DB.setSetting('bedTypes',ST.bedTypes);
 }
 function openSettings(){
+  document.getElementById('cfg-project-mode').value=ST.cfg.projectMode||'casablanca';
   document.getElementById('cfg-fp-base').value=ST.cfg.fpBase||'./floor-plans/complete/';
   document.getElementById('cfg-auto-dl').checked=!!ST.cfg.autoDownload;
   _refreshAuthSettingsPanel();
@@ -995,7 +1046,7 @@ function updateTokenStatus(){
 function buildTradeCfgRows(){
   const allCos=liveCompanies();
   const coOpts=allCos.map(c=>`<option value="${c.name}">${c.name}</option>`).join('');
-  const allTrades=[...TRADES,...(ST.cfg.customTrades||[]).map((c,i)=>({id:'custom_'+i,label:c.label}))];
+  const allTrades=[...liveTrades(),...(ST.cfg.customTrades||[]).map((c,i)=>({id:'custom_'+i,label:c.label}))];
   let html=allTrades.map(t=>{
     const cur=ST.cfg.tradeDefaults[t.id]||'';
     const lbl=(ST.cfg.tradeLabels&&ST.cfg.tradeLabels[t.id])||t.label;
@@ -1013,6 +1064,9 @@ function buildTradeCfgRows(){
 }
 function memberKey(m){return m.id||('email:'+m.email);}
 function liveCompanies(){
+  // Sheet modes: only this project's own companies (the hardcoded Casablanca COMPANIES
+  // list must not bleed into other projects).
+  if(isSheetMode())return (ST.cfg.accCompanies||[]).map(c=>({name:c.name,accId:c.accId||''}));
   const byName=new Map();
   // Hardcoded NUMERIC company ids win. ACC v1 issue assignment (assignedToType:'company')
   // requires the numeric account-company id (e.g. 541216015); the members endpoint returns a
@@ -1163,6 +1217,15 @@ async function fetchAccProjectData(){
     });
     ST.cfg.accCompanies=[...coMap.values()].sort((a,b)=>a.name.localeCompare(b.name));
 
+    // Issue types + subtypes — the trade list for sheet-mode projects.
+    try{
+      const tResp=await fetch(`${BASE}/construction/issues/v1/projects/${pid}/issue-types?include=subtypes`,{headers:{'Authorization':'Bearer '+token}});
+      if(tResp.ok){
+        const td=await tResp.json();
+        ST.cfg.accIssueTypes=(td.results||[]).map(t=>({id:t.id,title:t.title,subtypes:(t.subtypes||[]).filter(s=>s.isActive!==false).map(s=>({id:s.id,title:s.title}))}));
+      }
+    }catch(e){console.warn('Issue types fetch failed:',e);}
+
     // Watchers = Superintendent + the manager (the logged-in user), and only those two.
     // (Seeded once if unset; the user can still adjust toggles in Setup.)
     if(!(ST.cfg.watchers||[]).length){
@@ -1275,19 +1338,65 @@ async function renderFloorTabs(){
   const all=await DB.getAllIssues();
   const counts={};
   all.forEach(i=>{if(!i.resolved){counts[i.floor]=(counts[i.floor]||0)+1;}});
-  document.getElementById('floor-tabs').innerHTML=FLOOR_KEYS.map(fk=>{
+  document.getElementById('floor-tabs').innerHTML=modeFloors().map(fk=>{
     const c=counts[fk]||0;
-    return `<div class="floor-tab${fk===ST.floor?' active':''}" onclick="switchFloor('${fk}')">${fk} Floor${c?`<span class="tab-badge">${c}</span>`:''}</div>`;
+    const lbl=isSheetMode()?fk:fk+' Floor';
+    return `<div class="floor-tab${fk===ST.floor?' active':''}" onclick="switchFloor('${fk}')">${lbl}${c?`<span class="tab-badge">${c}</span>`:''}</div>`;
   }).join('');
-  document.getElementById('floor-label-display').textContent=ST.floor+' Floor';
+  document.getElementById('floor-label-display').textContent=floorLabel(ST.floor);
 }
 function switchFloor(fk){ST.floor=fk;closePanel();renderAll();}
+// ─── PROJECT MODE SWITCHING ───────────────────────────────────────────────────
+// Everything project-specific in cfg gets snapshotted per mode so flipping between
+// Casablanca and a sheet-mode project restores each one exactly as it was left.
+const PROFILE_FIELDS=['projectId','projectName','accountId','accProjectName','accMembers','accCompanies','watchers','tradeDefaults','customTrades','tradeLabels','lastTrade','lastCo','accIssueTypes','activeCompanies'];
+function _modeDefault(mode,f){
+  const m=PROJECT_MODES[mode]||{};
+  if(f==='projectId')return m.accProjectId||'';
+  if(f==='projectName')return m.accProjectName||'';
+  if(f==='tradeDefaults')return mode==='casablanca'?{...DEFAULT_TRADE_DEFAULTS}:{};
+  if(f==='activeCompanies')return mode==='casablanca'?DEFAULT_CFG.activeCompanies.slice():[];
+  if(f==='tradeLabels')return {};
+  if(['accMembers','accCompanies','watchers','customTrades','accIssueTypes'].indexOf(f)!==-1)return [];
+  return '';
+}
+async function switchProjectMode(mode){
+  const cur=ST.cfg.projectMode||'casablanca';
+  if(!PROJECT_MODES[mode]||mode===cur)return;
+  // Snapshot the current mode's project config
+  ST.cfg.profiles=ST.cfg.profiles||{};
+  const snap={_floor:ST.floor};
+  PROFILE_FIELDS.forEach(f=>snap[f]=ST.cfg[f]);
+  ST.cfg.profiles[cur]=snap;
+  // Load the target mode's saved profile (or its presets)
+  const saved=ST.cfg.profiles[mode]||{};
+  PROFILE_FIELDS.forEach(f=>{ST.cfg[f]=(saved[f]!==undefined&&saved[f]!==null)?saved[f]:_modeDefault(mode,f);});
+  ST.cfg.projectMode=mode;
+  applyModeChrome();
+  ST.floor=(saved._floor&&modeFloors().indexOf(saved._floor)!==-1)?saved._floor:modeFloors()[isSheetMode()?0:modeFloors().length-1];
+  await persistSettings();
+  closePanel();
+  _updateProjectDisplay();
+  buildTradeCfgRows();buildWatcherRows();buildCompanyRows();buildNewTradeCoSelect();
+  document.getElementById('acc-fetch-status').textContent=ST.cfg.accMembers.length?'':'Click "Load Members & Companies" to pull this project’s team and trade list from ACC.';
+  setView(isSheetMode()?'map':'grid');
+  await renderAll();
+  showToast('Switched to '+curMode().title.replace(' Punch List',''));
+}
+// Mode-dependent chrome: sheet modes hide the Grid/Map toggle (map only) and make sure
+// ST.floor is a valid key for the active mode.
+function applyModeChrome(){
+  const tog=document.querySelector('.view-toggle');
+  if(tog)tog.style.display=isSheetMode()?'none':'';
+  if(modeFloors().indexOf(ST.floor)===-1)ST.floor=isSheetMode()?modeFloors()[0]:'9th';
+}
 function setView(v){
+  if(isSheetMode())v='map';   // sheet modes have no room grid — always the sheet
   ST.view=v;
   document.getElementById('btn-grid').classList.toggle('active',v==='grid');
   document.getElementById('btn-map').classList.toggle('active',v==='map');
   document.getElementById('grid-section').style.display=v==='grid'?'':'none';
-  document.getElementById('map-section').style.display=v==='map'?'':'none';
+  document.getElementById('map-section').style.display=v==='map'?'block':'none';
   if(v==='map')renderMapView();
 }
 
@@ -1335,7 +1444,7 @@ async function renderMapView(){
   // Area row for map
   const issues=await DB.getFloorIssues(ST.floor);
   const cnt={};issues.forEach(i=>{cnt[i.areaKey]=(cnt[i.areaKey]||0)+1;});
-  document.getElementById('map-area-row').innerHTML=AREAS.map(a=>{
+  document.getElementById('map-area-row').innerHTML=isSheetMode()?'':AREAS.map(a=>{
     const c=cnt[a.key]||0;
     return `<div class="area-btn ${a.cls}${c?' has-items':''}" onclick="openArea('${a.key}','${a.label}')">${c?`<span class="punch-badge">${c}</span>`:''}${a.label}</div>`;
   }).join('');
@@ -1364,6 +1473,14 @@ document.getElementById('map-canvas').addEventListener('click',async function(e)
   const rect=img.getBoundingClientRect();
   const x=((e.clientX-rect.left)/rect.width)*100;
   const y=((e.clientY-rect.top)/rect.height)*100;
+  if(isSheetMode()){
+    // Sheet mode: no room picker — open the panel with the tapped location pre-placed.
+    const s=sheetByKey(ST.floor);
+    await openRoomPanel(ST.floor,'sheet',s?s.label:ST.floor,'Sheet',null,getFloorPlanSrc(ST.floor));
+    ST.pendingDot={x:parseFloat(x.toFixed(1)),y:parseFloat(y.toFixed(1))};
+    updateDotStatus();loadAndDrawDots();
+    return;
+  }
   // Show room picker popup
   const rooms=ROOMS[ST.floor]||[];
   const opts=rooms.map(r=>`<option value="${r.num}|${r.type}">${r.num} (${r.type})</option>`).join('');
@@ -1611,7 +1728,7 @@ async function renderIssueList(){
 function buildTradeSelect(){
   const sel=document.getElementById('issue-trade');
   sel.innerHTML='<option value="">— Select Trade —</option>';
-  TRADES.forEach(t=>{
+  liveTrades().forEach(t=>{
     const lbl=(ST.cfg.tradeLabels&&ST.cfg.tradeLabels[t.id])||t.label;
     sel.innerHTML+=`<option value="${t.id}">${lbl}</option>`;
   });
@@ -1880,7 +1997,7 @@ function loadImageFromFile(file){
 }
 function buildWatermarkLabel(issueId){
   const r=ST.room;
-  const line1=`${r?r.label:'Room'} · ${r?r.floor+' Floor':''}`;
+  const line1=isSheetMode()?`${r?r.label:'Sheet'}`:`${r?r.label:'Room'} · ${r?r.floor+' Floor':''}`;
   return line1;
 }
 function buildPhotoFilename(ts){
@@ -1927,7 +2044,8 @@ function closeLightbox(){
 
 // ─── STATS ────────────────────────────────────────────────────────────────────
 async function updateStats(){
-  const all=await DB.getAllIssues();
+  const keys=new Set(modeFloors());
+  const all=(await DB.getAllIssues()).filter(i=>keys.has(i.floor));
   const rooms=new Set();let total=0,open=0,res=0,syn=0;
   all.forEach(i=>{
     rooms.add(i.floor+'_'+i.areaKey);total++;
@@ -1951,10 +2069,10 @@ function doExport(){
 }
 async function exportTxt(){
   const all=await DB.getAllIssues();
-  const lines=['CASABLANCA PUNCH LIST — '+new Date().toLocaleString(),''];
-  FLOOR_KEYS.forEach(fk=>{
+  const lines=[curMode().title.toUpperCase()+' — '+new Date().toLocaleString(),''];
+  modeFloors().forEach(fk=>{
     const fi=all.filter(i=>i.floor===fk);if(!fi.length)return;
-    lines.push('='.repeat(50),fk.toUpperCase()+' FLOOR','='.repeat(50));
+    lines.push('='.repeat(50),floorLabel(fk).toUpperCase(),'='.repeat(50));
     AREAS.forEach(a=>{
       const ai=fi.filter(i=>i.areaKey===a.key);if(!ai.length)return;
       lines.push('\n'+a.label);
@@ -1963,23 +2081,24 @@ async function exportTxt(){
     const roomNums=[...new Set(fi.filter(i=>!['corridor','elevator'].includes(i.areaKey)).map(i=>i.areaKey))].sort((a,b)=>parseInt(a)-parseInt(b));
     roomNums.forEach(ak=>{
       const ri=fi.filter(i=>i.areaKey===ak);if(!ri.length)return;
-      lines.push('\nRoom '+ak+(ri[0].roomType&&ri[0].roomType!=='Regular'?' ('+ri[0].roomType+')':''));
+      lines.push('\n'+(ri[0].areaLabel||('Room '+ak))+(ri[0].roomType&&['Regular','Sheet'].indexOf(ri[0].roomType)===-1?' ('+ri[0].roomType+')':''));
       ri.forEach((iss,idx)=>{lines.push(`  ${idx+1}. [${iss.resolved?'RESOLVED':'OPEN'}][${iss.synced?'SYNCED':'PENDING'}] ${iss.description}${iss.tradeId?` [${tradeLabel(iss.tradeId)}]`:''}${iss.companyName?' — '+iss.companyName:''}`);});
     });
     lines.push('');
   });
-  downloadBlob(new Blob([lines.join('\n')],{type:'text/plain'}),'CasablancaPunchList_'+dateStamp()+'.txt');
+  downloadBlob(new Blob([lines.join('\n')],{type:'text/plain'}),curMode().fileTag+'PunchList_'+dateStamp()+'.txt');
 }
 async function exportCsv(){
-  const all=await DB.getAllIssues();
+  const _mk=new Set(modeFloors());
+  const all=(await DB.getAllIssues()).filter(i=>_mk.has(i.floor));
   const photos=await DB.getAllPhotos();
   const photoCnt={};photos.forEach(p=>{photoCnt[p.issueId]=(photoCnt[p.issueId]||0)+1;});
   const header=['Floor','Area/Room','Room Type','Bed Type','Description','Trade','Company','Status','Synced','Forma ID','Photos','Date Added'];
   const rows=[header];
-  all.sort((a,b)=>FLOOR_KEYS.indexOf(a.floor)-FLOOR_KEYS.indexOf(b.floor)||(parseInt(a.areaKey)||0)-(parseInt(b.areaKey)||0)||(a.createdAt-b.createdAt));
+  all.sort((a,b)=>modeFloors().indexOf(a.floor)-modeFloors().indexOf(b.floor)||(parseInt(a.areaKey)||0)-(parseInt(b.areaKey)||0)||(a.createdAt-b.createdAt));
   rows.push(...all.map(i=>[i.floor,i.areaLabel||i.areaKey,i.roomType||'',i.bedType||'',i.description,tradeLabel(i.tradeId),i.companyName||'',i.resolved?'Resolved':'Open',i.synced?'Synced':'Pending',i.formaId||'',photoCnt[i.id]||0,new Date(i.createdAt).toLocaleDateString()]));
   const csv='﻿'+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
-  downloadBlob(new Blob([csv],{type:'text/csv;charset=utf-8'}),'CasablancaPunchList_'+dateStamp()+'.csv');
+  downloadBlob(new Blob([csv],{type:'text/csv;charset=utf-8'}),curMode().fileTag+'PunchList_'+dateStamp()+'.csv');
 }
 async function exportPdf(){
   const all=await DB.getAllIssues();
@@ -1988,7 +2107,7 @@ async function exportPdf(){
   const photoMap={};allPhotos.forEach(p=>{(photoMap[p.issueId]=photoMap[p.issueId]||[]).push(p);});
   // Collect open items by floor/area
   const floorData=[];
-  for(const fk of FLOOR_KEYS){
+  for(const fk of modeFloors()){
     const fi=all.filter(i=>i.floor===fk&&!i.resolved);if(!fi.length)continue;
     const sections=new Map();
     fi.forEach(i=>{
@@ -2023,7 +2142,7 @@ async function exportPdf(){
       }));
       roomPages+=`<div style="page-break-before:always;padding:20px;">
         <div style="background:#1c2b3a;color:#fff;padding:12px 18px;border-radius:6px 6px 0 0;display:flex;justify-content:space-between;align-items:center;">
-          <div><div style="font-size:10px;color:#9fb3c8;">Casablanca Punch List · ${new Date().toLocaleDateString()}</div><div style="font-size:18px;font-weight:700;margin:2px 0;">${sec.label}</div><div style="font-size:11px;color:#9fb3c8;">${fd.floor} Floor · ${sec.type}</div></div>
+          <div><div style="font-size:10px;color:#9fb3c8;">${curMode().title} · ${new Date().toLocaleDateString()}</div><div style="font-size:18px;font-weight:700;margin:2px 0;">${sec.label}</div><div style="font-size:11px;color:#9fb3c8;">${floorLabel(fd.floor)} · ${sec.type}</div></div>
           <div style="text-align:center;background:rgba(255,255,255,.1);padding:8px 14px;border-radius:4px;"><div style="font-size:20px;font-weight:700;color:#f08080;">${sec.items.length}</div><div style="font-size:10px;color:#9fb3c8;">Open Items</div></div>
         </div>
         <div style="border:1px solid #ddd;border-top:none;border-radius:0 0 6px 6px;padding:0 18px;">
@@ -2033,7 +2152,7 @@ async function exportPdf(){
     }
   }
   const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Casablanca Punch List</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;}@media print{@page{margin:15mm;}}</style></head><body>${roomPages}</body></html>`);
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${curMode().title}</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;}@media print{@page{margin:15mm;}}</style></head><body>${roomPages}</body></html>`);
   w.document.close();setTimeout(()=>w.print(),800);
 }
 async function exportPhotosZip(){
@@ -2047,14 +2166,15 @@ async function exportPhotosZip(){
       count++;
     }
   }
-  if(!count){alert('No photos on '+ST.floor+' Floor.');return;}
+  if(!count){alert('No photos on '+floorLabel(ST.floor)+'.');return;}
   const blob=await zip.toBlob();
-  downloadBlob(blob,'Casablanca_'+ST.floor+'Floor_Photos_'+dateStamp()+'.zip');
+  downloadBlob(blob,curMode().fileTag+'_'+ST.floor.replace(/[^\w.-]/g,'')+'_Photos_'+dateStamp()+'.zip');
 }
 
 // ─── ACC FORMA SYNC ───────────────────────────────────────────────────────────
 async function openSyncModal(){
-  const pending=(await DB.getAllIssues()).filter(i=>!i.synced&&!i.resolved);
+  const _mk=new Set(modeFloors());   // only the active project's items
+  const pending=(await DB.getAllIssues()).filter(i=>!i.synced&&!i.resolved&&_mk.has(i.floor));
   const auth=await DB.getSetting('auth',null);
   const isAuthed=!!(auth&&auth.accessToken&&auth.expiresAt>Date.now());
   const due=addBusinessDays(new Date(),5);
@@ -2062,13 +2182,13 @@ async function openSyncModal(){
   const byFloor={};pending.forEach(i=>{const f=i.floor||'?';byFloor[f]=(byFloor[f]||0)+1;});
   const floorKeys=Object.keys(byFloor).sort();
   const floorOpts=[`<option value="__all__">All floors (${pending.length} items)</option>`]
-    .concat(floorKeys.map(f=>`<option value="${f}">${f} Floor only (${byFloor[f]} item${byFloor[f]!==1?'s':''})</option>`)).join('');
+    .concat(floorKeys.map(f=>`<option value="${f}">${floorLabel(f)} only (${byFloor[f]} item${byFloor[f]!==1?'s':''})</option>`)).join('');
   // Count + per-company chips for the CURRENTLY SELECTED scope — recomputed whenever the floor changes.
   function scopedHtml(scopeFloor){
     const items=scopeFloor?pending.filter(i=>(i.floor||'?')===scopeFloor):pending;
     const byco={};items.forEach(i=>{const c=i.companyName||'Unassigned';byco[c]=(byco[c]||0)+1;});
     const chips=Object.entries(byco).sort((a,b)=>b[1]-a[1]).map(([c,n])=>`<span style="display:inline-block;background:#e8f0ff;border:1px solid #b0c0f0;border-radius:3px;padding:2px 7px;font-size:11px;margin:2px;">${n} &times; ${c}</span>`).join(' ');
-    return `<strong>${items.length}</strong> item(s) will push &nbsp;·&nbsp; ${scopeFloor?scopeFloor+' Floor':'all floors'}`+
+    return `<strong>${items.length}</strong> item(s) will push &nbsp;·&nbsp; ${scopeFloor?floorLabel(scopeFloor):'all floors'}`+
       (chips?`<div style="margin-top:6px;">${chips}</div>`:'');
   }
   const defFloor=(ST.floor&&byFloor[ST.floor])?ST.floor:null;
@@ -2191,6 +2311,7 @@ async function refreshResolvedFromForma(){
 }
 // The plan image for a given item's location — matches the panel's own logic so the dot lines up.
 function getPlanSrcForItem(it){
+  if(it.areaKey==='sheet'){const s=(curMode().sheets||[]).find(x=>x.key===it.floor);return s?s.src:'';}
   if(it.areaKey==='corridor')return getFloorPlanSrc(it.floor);
   if(it.areaKey==='elevator')return ROOM_PLAN_PATHS.elevator_lobby;
   return getRoomPlanSrc(it.roomType,it.bedType);
@@ -2378,7 +2499,8 @@ async function restoreFromAcc(){
   }catch(e){console.error('Restore error',e);_bstat('✗ Restore failed: '+e.message,'#c0392b');uiAlert('Restore failed:\n\n'+e.message);}
 }
 async function startSync(){
-  const all=(await DB.getAllIssues()).filter(i=>!i.synced&&!i.resolved);
+  const _mk=new Set(modeFloors());   // only the active project's items
+  const all=(await DB.getAllIssues()).filter(i=>!i.synced&&!i.resolved&&_mk.has(i.floor));
   if(!all.length){uiAlert('No pending items to sync.');return;}
   // Scope from the sync window's floor selector (defaults to All floors).
   const fsel=document.getElementById('sync-floor');
@@ -2401,9 +2523,29 @@ async function startSync(){
       const trade=getTrade(iss.tradeId);
       const body={title:buildIssueTitle(iss),description:`Location: ${iss.areaLabel||iss.areaKey}\n\n${iss.description}`,issueSubtypeId:subtypeId,status:'open',dueDate:due};
       if(isGeneralTrade(iss.tradeId)){const sup=superMember();if(sup&&sup.id){body.assignedTo=sup.id;body.assignedToType='user';}}
-      else{const co=liveCompanies().find(c=>c.name===iss.companyName);if(co&&co.accId){body.assignedTo=co.accId;body.assignedToType='company';}}
+      else{
+        const co=liveCompanies().find(c=>c.name===iss.companyName);
+        if(co&&co.accId){body.assignedTo=co.accId;body.assignedToType='company';}
+        else if(isSheetMode()){
+          // Sheet mode: no company mapped (or no usable id) — assign to the superintendent
+          // so the issue never lands unassigned.
+          const sup=superMember();
+          if(sup&&sup.id){body.assignedTo=sup.id;body.assignedToType='user';logLine(log,'inf','  ↪ no company mapped — assigning to superintendent');}
+        }
+      }
       if(watcherIds.length)body.watcherIds=watcherIds;
-      const resp=await fetch(`https://developer.api.autodesk.com/construction/issues/v1/projects/${pid}/issues`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const _post=()=>fetch(`https://developer.api.autodesk.com/construction/issues/v1/projects/${pid}/issues`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(body)});
+      let resp=await _post();
+      if(resp.status===400&&body.assignedToType==='company'&&isSheetMode()){
+        // ACC v1 company assignment sometimes rejects the members-endpoint company id.
+        // Retry assigned to the superintendent user rather than failing the item.
+        const sup=superMember();
+        if(sup&&sup.id){
+          logLine(log,'inf','  ↪ company id rejected — retrying assigned to superintendent');
+          body.assignedTo=sup.id;body.assignedToType='user';
+          resp=await _post();
+        }
+      }
       if(!resp.ok){const eb=await resp.text().catch(()=>'');throw new Error('HTTP '+resp.status+' '+eb.slice(0,240));}
       const data=await resp.json();
       const formaId=data.id||(data.data&&data.data.id)||'created';
@@ -2444,7 +2586,11 @@ async function syncOne(issueId){
   const trade=getTrade(iss.tradeId);
   const body={title:buildIssueTitle(iss),description:`Location: ${iss.areaLabel||iss.areaKey}\n\n${iss.description}`,issueSubtypeId:subtypeId,status:'open',dueDate:due};
   if(trade&&trade.assignToSuper){const sup=superMember();if(sup&&sup.id){body.assignedTo=sup.id;body.assignedToType='user';}}
-  else{const co=liveCompanies().find(c=>c.name===iss.companyName);if(co&&co.accId){body.assignedTo=co.accId;body.assignedToType='company';}}
+  else{
+    const co=liveCompanies().find(c=>c.name===iss.companyName);
+    if(co&&co.accId){body.assignedTo=co.accId;body.assignedToType='company';}
+    else if(isSheetMode()){const sup=superMember();if(sup&&sup.id){body.assignedTo=sup.id;body.assignedToType='user';}}
+  }
   if(watcherIds.length)body.watcherIds=watcherIds;
   try{
     const resp=await fetch(`https://developer.api.autodesk.com/construction/issues/v1/projects/${pid}/issues`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(body)});
@@ -2599,7 +2745,8 @@ window.addEventListener('resize',()=>{if(ST.room){resizePanelCanvas();loadAndDra
   }
   await offerMigration();
   await migrateGeneralGvToFFE();
-  setView('grid');
+  applyModeChrome();
+  setView(isSheetMode()?'map':'grid');
   await renderAll();
   refreshResolvedFromForma();  // background: reconcile resolved status from Forma (closed issues)
 })().catch(err=>{document.body.innerHTML=`<div style="padding:40px;text-align:center;font-family:Arial;"><h2 style="color:#c00">App failed to start</h2><p style="margin-top:12px;color:#555;">${err.message}</p><p style="margin-top:8px;font-size:12px;color:#888;">Try opening in Chrome or Edge. IndexedDB required.</p></div>`;});

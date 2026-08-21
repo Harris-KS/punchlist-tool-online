@@ -1,5 +1,5 @@
 'use strict';
-const CACHE = 'punch-walk-v46';
+const CACHE = 'punch-walk-v47';
 // App shell — must all cache or the install is pointless.
 const SHELL_ASSETS = [
   './punch-tool.html',
@@ -18,7 +18,9 @@ const FLOOR_ASSETS = [
   './floor-plans/complete/6th%20Floor.png',
   './floor-plans/complete/7th%20Floor.png',
   './floor-plans/complete/8th%20Floor.png',
-  './floor-plans/complete/9th%20Floor.png'
+  './floor-plans/complete/9th%20Floor.png',
+  // Sheet-mode drawings (Finney's DTS)
+  './floor-plans/finneys/A-2.1.1.jpg'
 ];
 
 self.addEventListener('install', e => {
