@@ -1,5 +1,5 @@
 'use strict';
-const CACHE = 'punch-walk-v51';
+const CACHE = 'punch-walk-v52';
 // App shell — must all cache or the install is pointless.
 const SHELL_ASSETS = [
   './punch-tool.html',
