@@ -112,7 +112,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f0ed;color:#1a1a1a;mi
 .pending-thumb-wrap{position:relative;}
 .pending-thumb{width:46px;height:46px;object-fit:cover;border-radius:4px;border:1.5px solid #ccc;cursor:pointer;}
 .thumb-del{position:absolute;top:-5px;right:-5px;background:#c00;color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;line-height:16px;text-align:center;cursor:pointer;font-weight:700;padding:0;}
-.btn-photo{background:#f5f5f5;border:1.5px dashed #bbb;color:#444;font-size:12px;padding:5px 10px;cursor:pointer;border-radius:4px;font-weight:600;}
+.btn-photo{background:#f5f5f5;border:1.5px dashed #bbb;color:#444;font-size:13px;padding:8px 13px;cursor:pointer;border-radius:5px;font-weight:600;}
 .btn-photo:hover{background:#eef3ff;border-color:#7090d0;}
 .btn-add-issue{background:#1c2b3a;color:#fff;border:none;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;border-radius:4px;white-space:nowrap;}
 .btn-add-issue:hover{background:#253547;}
@@ -141,13 +141,16 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f0ed;color:#1a1a1a;mi
 .photo-thumb:hover{opacity:.82;}
 .photo-del{position:absolute;top:-5px;right:-5px;background:#c00;color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;line-height:16px;text-align:center;cursor:pointer;font-weight:700;padding:0;}
 .issue-actions{display:flex;gap:3px;flex-direction:column;align-items:flex-end;}
-.btn-resolve{background:#f0fff5;border:1px solid #40a870;color:#006630;font-size:11px;padding:3px 7px;cursor:pointer;border-radius:3px;font-weight:600;}
+.issue-btn-row{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:8px;}
+.photo-thumb-wrap.completion{outline:2px solid #40a870;outline-offset:1px;border-radius:4px;}
+.photo-done{position:absolute;bottom:-4px;left:-4px;background:#2e7d43;color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;line-height:16px;text-align:center;font-weight:700;}
+.btn-resolve{background:#f0fff5;border:1px solid #40a870;color:#006630;font-size:13px;padding:8px 13px;cursor:pointer;border-radius:5px;font-weight:600;}
 .btn-resolve:hover{background:#40a870;color:#fff;}
-.btn-del{background:#fff5f5;border:1px solid #e0a0a0;color:#c00;font-size:11px;padding:3px 7px;cursor:pointer;border-radius:3px;}
+.btn-del{background:#fff5f5;border:1px solid #e0a0a0;color:#c00;font-size:13px;padding:8px 13px;cursor:pointer;border-radius:5px;font-weight:600;}
 .btn-del:hover{background:#c00;color:#fff;}
-.btn-sync-one{background:#e8f4ff;border:1px solid #5090d0;color:#0a3a8a;font-size:11px;padding:3px 7px;cursor:pointer;border-radius:3px;font-weight:600;}
+.btn-sync-one{background:#e8f4ff;border:1px solid #5090d0;color:#0a3a8a;font-size:13px;padding:8px 13px;cursor:pointer;border-radius:5px;font-weight:600;}
 .btn-sync-one:hover{background:#0e6fb5;color:#fff;}
-.btn-edit{background:#f5f0ff;border:1px solid #9070c0;color:#4a1a8a;font-size:11px;padding:3px 7px;cursor:pointer;border-radius:3px;font-weight:600;}
+.btn-edit{background:#f5f0ff;border:1px solid #9070c0;color:#4a1a8a;font-size:13px;padding:9px 16px;cursor:pointer;border-radius:5px;font-weight:600;}
 .btn-edit:hover{background:#6030a0;color:#fff;}
 .edit-field{width:100%;padding:6px 8px;font-size:12px;border:1.5px solid #7090d0;border-radius:4px;outline:none;resize:vertical;font-family:inherit;margin-bottom:5px;}
 .edit-row{display:flex;gap:5px;margin-bottom:6px;flex-wrap:wrap;}
@@ -504,7 +507,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f0ed;color:#1a1a1a;mi
 <script>
 'use strict';
 // App version — shown in the header/install banner. Keep in sync with sw.js CACHE.
-const APP_VERSION='v47';
+const APP_VERSION='v48';
 try{document.querySelectorAll('.app-ver').forEach(e=>{e.textContent=APP_VERSION;});}catch(e){}
 // ─── PWA ICON + MANIFEST (generated inline — no separate PNG files needed) ────
 const _H_SVG_PATH='M72.03,237.15c-7.68-3.59-15.47-6.97-23.38-10.13-10.59-4.23-21.32-8.07-31.48-13.28-.74-.34-1.42-.75-2.13-1.14-3.33-1.88-6.44-3.9-9.26-6.53-1.66-1.62-2.98-3.25-4.11-5.31-2.89-5.7-1.87-11.39,1.64-16.39,2.08-2.74,4.5-4.74,7.4-6.62,6.96-4.21,14.55-6.64,22.44-8.67,13.87-3.22,28-5.2,42.22-6.4,2.26-47.08,4.76-94.15,7.26-141.22C83.07,15.81,84.8.06,92.46,0h.14s.14.04.14.04c7.28,2.41,7.38,17.91,7.17,24.06-2.63,45.84-5.27,91.68-8.13,137.5,2.55-.12,5.1-.23,7.65-.31,27.58-.95,55.28.22,82.81,3.19,1.69.18,3.37.44,5.05.67,1.11-31.31,2.05-62.63,3.27-93.94.33-8.46.75-16.91,1.37-25.35.36-4.94.78-9.88,1.4-14.79.52-4.1,2.96-13.99,8.54-13.23,6.29.85,7.37,12.94,7.22,17.76-.15,4.96-.4,9.91-.65,14.87-.26,5-.54,10-.82,15-.15,2.64-.34,5.28-.45,7.92-1.23,31.33-2.28,62.66-3.49,93.99,1.74.28,3.48.56,5.22.86,6.25,1.07,12.5,2.23,18.6,4.07,2.7.81,9.7,2.87,9.05,6.63l-.05.3-.16.25c-.68,1.04-2.65.66-3.73.57-2.01-.16-4.02-.37-6.03-.58-6.02-.63-12.04-1.32-18.05-2.01-1.74-.2-3.48-.4-5.22-.61-1.41,35.21-3.09,70.41-5.55,105.56-.76,8.52-1.53,17.03-2.12,25.57,2.9,3.75,5.58,7.68,8.01,11.79,3.78,6.93,6.16,13.15,6.71,21.05.19,7.87-1.59,13.5-6.19,19.77-1.36,1.74-2.81,3.29-4.64,4.57-1.02.67-2.05,1.18-3.25,1.54-1.52.42-2.87.5-4.48.26-1.71-.31-3.06-.89-4.53-1.89-1.16-.84-2.07-1.77-2.94-2.93-1.27-1.8-2.06-3.6-2.73-5.71-2.48-8.89-2.51-18.37-2.38-27.47.08-5.88.34-11.76.7-17.63-6.71-7.73-14.4-14.56-22.22-21.11-22.37-17.79-46.18-33.15-71.34-46.08-.86,12.92-1.71,25.81-2.85,38.74-.99,11.14-2.07,22.46-3.8,33.5-.38,2.46-2.12,15.81-5.41,16.15l-.22.02-.21-.09c-3.01-1.29-3.31-14.57-3.43-17.27-.49-11.23-.32-22.63-.07-33.85.33-14.8,1.03-29.48,1.67-44.23h0ZM72.67,222.24c.66-15.55,1.37-31.1,2.1-46.65-12.53,1.35-24.96,3.35-37.14,6.39-6.52,1.76-13.05,3.81-18.77,7.39-1.56,1.04-3.01,2.15-4.11,3.65-.51.75-.99,1.73-.63,2.66.75,1.9,4.96,3.9,6.71,4.87.58.32,1.16.64,1.76.93,9.73,4.86,20,8.42,30.09,12.38,6.76,2.65,13.43,5.44,20,8.39h0ZM90.98,174.17c-1.16,18.33-2.36,36.66-3.62,54.98,27.96,13.77,54.26,30.4,79.12,50.01,5.07,4.21,10.07,8.53,14.83,13.09.33-4.16.65-8.31.94-12.47,2.42-34.86,3.39-69.84,4.66-104.78-1.55-.21-3.09-.46-4.64-.59-27.03-1.7-54.14-2.3-81.12-.87-3.39.18-6.78.39-10.17.62h0ZM194.55,333.28c-.1,6.32-.12,13.04.36,19.2.01.19.08.7.21.99.21-.26.42-.81.49-1.01,1.34-4,1.38-14.1-1.05-19.18Z';
@@ -751,12 +754,13 @@ const DB=(()=>{
     return r||[];
   }
   async function addPhoto(photo){return promReq(tx('photos','readwrite').objectStore('photos').add(photo));}
+  async function updatePhoto(photo){return promReq(tx('photos','readwrite').objectStore('photos').put(photo));}
   async function deletePhoto(id){return promReq(tx('photos','readwrite').objectStore('photos').delete(id));}
   async function deletePhotosByIssue(issueId){
     const photos=await getPhotos(issueId);
     for(const p of photos) await deletePhoto(p.id);
   }
-  return{open,getSetting,setSetting,getIssues,getFloorIssues,getAllIssues,addIssue,updateIssue,deleteIssue,getPhotos,getAllPhotos,addPhoto,deletePhoto,deletePhotosByIssue};
+  return{open,getSetting,setSetting,getIssues,getFloorIssues,getAllIssues,addIssue,updateIssue,deleteIssue,getPhotos,getAllPhotos,addPhoto,updatePhoto,deletePhoto,deletePhotosByIssue};
 })();
 
 // ─── UTILITIES ────────────────────────────────────────────────────────────────
@@ -1698,7 +1702,7 @@ async function renderIssueList(){
     const isWishlist=iss.tradeId===WISHLIST_TRADE_ID;
     const dispIdx=iss.resolved?'✓':++openIdx;
     const dotHtml=iss.dotX!==null?'<span class="dot-placed" title="Location marked on plan"></span>':'';
-    const photoHtml=photos.map(p=>`<div class="photo-thumb-wrap"><img class="photo-thumb" src="${getPhotoUrl(p)}" onclick="viewPhoto('${getPhotoUrl(p)}')" loading="lazy"><button class="photo-del" onclick="delPhoto(${p.id},${iss.id})" title="Delete photo">×</button></div>`).join('');
+    const photoHtml=photos.map(p=>`<div class="photo-thumb-wrap${p.completion?' completion':''}"><img class="photo-thumb" src="${getPhotoUrl(p)}" onclick="viewPhoto('${getPhotoUrl(p)}')" loading="lazy">${p.completion?'<span class="photo-done" title="Completion photo">&#10003;</span>':''}<button class="photo-del" onclick="delPhoto(${p.id},${iss.id})" title="Delete photo">×</button></div>`).join('');
     html+=`<div class="issue-item${iss.resolved?' resolved':''}">
       <span class="issue-num">#${dispIdx}</span>
       <div class="issue-body" id="ib_${iss.id}">
@@ -1709,15 +1713,16 @@ async function renderIssueList(){
           ${iss.synced?`<span class="tag tag-synced">&#10003; ${iss.formaNum?'Forma #'+iss.formaNum:'Synced'}</span>`:`<span class="tag tag-pending">Pending sync</span>`}
           ${iss.resolved?`<span class="tag tag-resolved">&#9679; Resolved</span>`:''}
         </div>
-        <div class="photo-row">${photoHtml}
-          <button class="btn-photo" style="width:50px;height:50px;font-size:10px;padding:2px;" onclick="addPhoto(${iss.id})">📷<br>Add</button>
+        <div class="photo-row">${photoHtml}</div>
+        <div class="issue-btn-row">
+          <button class="btn-photo" onclick="addPhoto(${iss.id})">📷 Add Photo</button>
+          ${!iss.synced?`<button class="btn-sync-one" onclick="syncOne(${iss.id})">&#8593; Sync</button>`:''}
+          <button class="btn-resolve" onclick="toggleResolve(${iss.id})">${iss.resolved?'Reopen':'&#10003; Resolve'}</button>
+          <button class="btn-del" onclick="delIssue(${iss.id})">Del</button>
         </div>
       </div>
       <div class="issue-actions">
-        <button class="btn-edit" onclick="editIssue(${iss.id})">Edit</button>
-        ${!iss.synced?`<button class="btn-sync-one" onclick="syncOne(${iss.id})">&#8593; Sync</button>`:''}
-        <button class="btn-resolve" onclick="toggleResolve(${iss.id})">${iss.resolved?'Reopen':'Resolve'}</button>
-        <button class="btn-del" onclick="delIssue(${iss.id})">Del</button>
+        <button class="btn-edit" onclick="editIssue(${iss.id})">&#9998; Edit</button>
       </div>
     </div>`;
   }
@@ -1919,6 +1924,17 @@ async function toggleResolve(id){
   const issues=await DB.getIssues(ST.room.floor,ST.room.areaKey);
   const iss=issues.find(i=>i.id===id);
   if(!iss)return;
+  // Resolving requires a completion (fix) photo. Reopening does not.
+  if(!iss.resolved){
+    const photos=await DB.getPhotos(iss.id);
+    if(!photos.some(p=>p.completion)){
+      const ok=await uiConfirm('A completion photo is required to resolve this item.\n\nTake the completion photo now?','Take photo');
+      if(!ok)return;
+      _afterCompletionPhoto=()=>toggleResolve(id);   // finish resolving once the completion photo is captured
+      addPhoto(id,{completion:true});
+      return;
+    }
+  }
   iss.resolved=!iss.resolved;
   if(iss.formaId)iss.pendingStatus=iss.resolved?'closed':'open';   // remember intent so reconcile won't stomp it
   await DB.updateIssue(iss);
@@ -1927,12 +1943,27 @@ async function toggleResolve(id){
   const auth=navigator.onLine?await DB.getSetting('auth',null):null;
   if(auth&&auth.accessToken){
     try{
+      if(iss.resolved)await uploadCompletionPhotos(iss,auth.accessToken);   // attach fix photo(s) BEFORE closing
       await pushIssueStatus(iss,auth.accessToken);
       iss.pendingStatus=null;await DB.updateIssue(iss);
       showToast((iss.resolved?'Closed':'Reopened')+' issue #'+(iss.formaNum||'?')+' in Forma.');
     }catch(e){showToast('Saved — will update Forma #'+(iss.formaNum||'?')+' on next sync.');}
   }else{
     showToast('Saved offline — will update Forma #'+(iss.formaNum||'?')+' when you sync online.');
+  }
+}
+// Upload any not-yet-uploaded completion photos for an issue to its Forma issue (call before closing).
+// Uploads one at a time and only marks a photo done on a confirmed success, so a failed upload is
+// retried on the next sync (and never double-uploaded). Throws on failure so the close is deferred.
+async function uploadCompletionPhotos(iss,token){
+  if(!iss.formaId)return;
+  const comps=(await DB.getPhotos(iss.id)).filter(p=>p.completion&&!p.formaUploaded);
+  if(!comps.length)return;
+  const scratch=document.createElement('div');            // attachIssuePhotos logs into an element
+  for(const p of comps){
+    const ok=await attachIssuePhotos(iss.formaId,[p],token,scratch);
+    if(ok>=1){p.formaUploaded=true;await DB.updatePhoto(p);}
+    else throw new Error('completion photo did not upload');
   }
 }
 function revokePhotoUrl(photoId){
@@ -1954,20 +1985,35 @@ async function delPhotoInEdit(photoId,issueId){
 
 // ─── PHOTO HANDLING ───────────────────────────────────────────────────────────
 let _photoTarget=null; // null=pending, issueId=existing
-function addPhoto(issueIdOrNull){
+let _completionMode=false;        // next captured photo is a completion/fix photo
+let _afterCompletionPhoto=null;   // continuation to run once a completion photo is saved (e.g. finish resolving)
+function addPhoto(issueIdOrNull,opts){
   _photoTarget=issueIdOrNull;
+  _completionMode=!!(opts&&opts.completion);
+  if(!_completionMode)_afterCompletionPhoto=null;   // don't leave a stale resolve continuation armed
   const inp=document.getElementById('photo-input');
   inp.value='';inp.click();
 }
 async function handlePhotoFile(e){
   const file=e.target.files[0];if(!file)return;
+  const isCompletion=_completionMode&&_photoTarget!==null;_completionMode=false;
   const img=await loadImageFromFile(file);
   if(!img)return;
-  const label=buildWatermarkLabel(_photoTarget);
+  let who='';
+  if(isCompletion){const a=await DB.getSetting('auth',null);who=(a&&(a.userName||a.userEmail))||'';}
+  const label=isCompletion?buildCompletionLabel(who):buildWatermarkLabel(_photoTarget);
   const watermarkedBlob=await applyWatermark(img,label);
   const originalBlob=file;
   const ts=Date.now();
   const filename=buildPhotoFilename(ts);
+  if(isCompletion){
+    const rec={issueId:_photoTarget,blob:originalBlob,watermarkedBlob,filename,createdAt:ts,completion:true,resolvedBy:who,resolvedAt:ts};
+    await DB.addPhoto(rec);
+    if(ST.cfg.autoDownload)downloadBlob(watermarkedBlob,filename);
+    await loadIssueList();
+    if(_afterCompletionPhoto){const cb=_afterCompletionPhoto;_afterCompletionPhoto=null;await cb();}
+    return;
+  }
   if(_photoTarget===null){
     // Pending
     const url=URL.createObjectURL(watermarkedBlob);
@@ -1999,6 +2045,12 @@ function buildWatermarkLabel(issueId){
   const r=ST.room;
   const line1=isSheetMode()?`${r?r.label:'Sheet'}`:`${r?r.label:'Room'} · ${r?r.floor+' Floor':''}`;
   return line1;
+}
+function buildCompletionLabel(who){
+  const r=ST.room;
+  const loc=r?(isSheetMode()?(r.label||''):`${r.label||'Room'} · ${r.floor||''} Floor`):'';
+  const dt=new Date().toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+  return `✓ COMPLETED  ${loc}\nby ${who||'—'}\n${dt}`;
 }
 function buildPhotoFilename(ts){
   const r=ST.room;
@@ -2250,8 +2302,9 @@ async function runPool(items,concurrency,worker){
 }
 async function attachIssuePhotos(issueId,photos,token,log){
   let folderId;
-  try{folderId=await getUploadFolderId(token);}catch(e){logLine(log,'err','    ✗ Photos skipped: '+e.message);return;}
+  try{folderId=await getUploadFolderId(token);}catch(e){logLine(log,'err','    ✗ Photos skipped: '+e.message);return 0;}
   const proj=ST.cfg.projectId,bare=accPid(proj);
+  let _okCount=0;
   await runPool(photos,3,async(ph)=>{
     const blob=ph.watermarkedBlob||ph.blob;
     const fn=ph.filename||('photo-'+_uuid()+'.jpg');
@@ -2277,9 +2330,10 @@ async function attachIssuePhotos(issueId,photos,token,log){
       // 5) attach the storage urn to the issue
       const at=await fetch(`https://developer.api.autodesk.com/construction/issues/v1/projects/${bare}/attachments`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({domainEntityId:issueId,attachments:[{attachmentId:_uuid(),displayName:fn,fileName:objectKey,attachmentType:'issue-attachment',storageUrn:storageUrn}]})});
       if(!at.ok)throw new Error('attach '+at.status+' '+(await at.text().catch(()=>'')).slice(0,160));
-      logLine(log,'ok','    ✓ Photo attached');
+      _okCount++;logLine(log,'ok','    ✓ Photo attached');
     }catch(pe){logLine(log,'err','    ✗ Photo failed: '+pe.message);}
   });
+  return _okCount;
 }
 // On app open (online), reconcile with Forma: if a synced item's issue was closed in ACC,
 // mark it resolved locally. Uses the already-stored formaId. Silent on any failure.
@@ -2564,7 +2618,7 @@ async function startSync(){
   // Push any pending resolve/reopen changes to already-synced Forma issues
   const statusChanges=(await DB.getAllIssues()).filter(i=>i.synced&&i.formaId&&i.pendingStatus&&(!scopeFloor||(i.floor||'?')===scopeFloor));
   for(const i of statusChanges){
-    try{await pushIssueStatus(i,token);i.pendingStatus=null;await DB.updateIssue(i);logLine(log,'ok','  ✓ #'+(i.formaNum||'?')+' → '+(i.resolved?'closed':'open')+' in Forma');}
+    try{if(i.resolved)await uploadCompletionPhotos(i,token);await pushIssueStatus(i,token);i.pendingStatus=null;await DB.updateIssue(i);logLine(log,'ok','  ✓ #'+(i.formaNum||'?')+' → '+(i.resolved?'closed':'open')+' in Forma');}
     catch(e){logLine(log,'err','  ✗ Status update #'+(i.formaNum||'?')+': '+e.message);}
   }
   document.getElementById('prog-bar').style.width='100%';
